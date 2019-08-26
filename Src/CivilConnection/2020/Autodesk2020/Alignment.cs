@@ -97,6 +97,23 @@ namespace CivilConnection
         /// </value>
         public double[] SuperTransStations { get { return _alignment.GetStations(AeccStationType.aeccSuperTransPoint, this.Start, this.End).Cast<AeccAlignmentStation>().Select(x => x.Station).ToArray(); } }
 
+        /// <summary>
+        /// Gets the stations of the station equations
+        /// </summary>
+        /// <value>
+        /// The Eqaution Stations
+        /// </value>
+        public double[] EquationStations { get { return _alignment.GetStations(AeccStationType.aeccEquation, this.Start, this.End).Cast<AeccAlignmentStation>().Select(x => x.Station).ToArray(); } }
+
+        /// <summary>
+        /// Gets the station ahead based on station equations
+        /// </summary>
+        /// <value>
+        /// The Station Ahead at each Station Equation
+        /// </value>
+        public double[] StationAhead { get { return _alignment.StationEquations.Cast<AeccStationEquation>().Select(x => x.StationAhead).ToArray(); } }       
+
+            
         #endregion
 
         #region INTERNAL CONSTRUCTORS
@@ -672,6 +689,35 @@ namespace CivilConnection
                 Math.Round(this.Length, 2).ToString(),
                 Math.Round(this.Start, 2).ToString(),
                 Math.Round(this.End, 2).ToString());
+        }
+        
+        /// <summary>
+        /// Getting Absolute Station value fromlist of stations based on station equtions
+        /// </summary>
+        /// <param name="eqStations"></param>
+        /// <param name="stationAhead"></param>
+        /// <param name="stations"></param>
+        /// <returns>
+        /// Absolute Station Value
+        /// </returns>
+        public List<double> AbsStationValue(List<double> eqStations, List<double> stationAhead, List<double> stations)
+        {
+            List<double> stationvalueList = new List<double>();
+            foreach (double station in stations)
+            {
+                for ( int i = 0; i < stationAhead.Count-1; i += 1)
+                {
+                    if (station >= stationAhead[i] && station < stationAhead[i + 1])
+                    {
+                        double distance = station - stationAhead[i];
+                        double stationValue = eqStations[i] + distance;
+                        stationvalueList.Add(stationValue);
+                    }
+                    
+                }
+
+            }
+            return stationvalueList;
         }
         #endregion
     }

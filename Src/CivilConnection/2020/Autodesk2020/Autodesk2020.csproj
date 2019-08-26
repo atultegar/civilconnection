@@ -173,6 +173,7 @@
     <Compile Include="SlopedFloor.cs" />
     <Compile Include="Subassembly.cs" />
     <Compile Include="SubassemblyParameter.cs" />
+    <Compile Include="CivilSurface.cs" />
     <Compile Include="TBMTunnel.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="UtilsObjectsLocation.cs" />

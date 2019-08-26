@@ -1,0 +1,8 @@
+C:\Users\ATTE\source\repos\civilconnection\Src\CivilConnection\2020\Autodesk2020\bin\Debug\pkg.json
+C:\Users\ATTE\source\repos\civilconnection\Src\CivilConnection\2020\Autodesk2020\bin\Debug\Autodesk2020.xml
+C:\Users\ATTE\source\repos\civilconnection\Src\CivilConnection\2020\Autodesk2020\bin\Debug\Autodesk2020.dll
+C:\Users\ATTE\source\repos\civilconnection\Src\CivilConnection\2020\Autodesk2020\bin\Debug\Autodesk2020.pdb
+C:\Users\ATTE\source\repos\civilconnection\Src\CivilConnection\2020\Autodesk2020\obj\Debug\Autodesk2020.csprojAssemblyReference.cache
+C:\Users\ATTE\source\repos\civilconnection\Src\CivilConnection\2020\Autodesk2020\obj\Debug\Autodesk2020.csproj.CoreCompileInputs.cache
+C:\Users\ATTE\source\repos\civilconnection\Src\CivilConnection\2020\Autodesk2020\obj\Debug\Autodesk2020.dll
+C:\Users\ATTE\source\repos\civilconnection\Src\CivilConnection\2020\Autodesk2020\obj\Debug\Autodesk2020.pdb
