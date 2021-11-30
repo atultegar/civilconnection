@@ -24,6 +24,8 @@ using System.IO;
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using System.ComponentModel;
+using Revit.GeometryReferences;
 
 namespace CivilConnection
 {
@@ -316,14 +318,14 @@ namespace CivilConnection
 
             string famPath = Path.Combine(Path.GetTempPath(), famName);
 
-            try
-            {
-                famPath = Path.Combine(Path.GetDirectoryName(DocumentManager.Instance.CurrentDBDocument.PathName), famName);
-            }
-            catch (Exception ex)
-            {
-                Utils.Log(string.Format("ERROR: Mass.GetFamilyDocument {0}", ex.Message));
-            }
+            //try
+            //{
+            //    famPath = Path.Combine(Path.GetDirectoryName(DocumentManager.Instance.CurrentDBDocument.PathName), famName);
+            //}
+            //catch (Exception ex)
+            //{
+            //    Utils.Log(string.Format("ERROR: Mass.GetFamilyDocument {0}", ex.Message));
+            //}
 
             foreach (Autodesk.Revit.DB.Family f in DocumentManager.Instance.ElementsOfType<Autodesk.Revit.DB.Family>())
             {
@@ -377,7 +379,7 @@ namespace CivilConnection
                     sao.OverwriteExistingFile = true;
                     sao.Compact = true;
                     sao.MaximumBackups = 1;
-                    famDoc.SaveAs(famPath, sao);
+                    famDoc.SaveAs(famPath); // modified from famDoc.SaveAs(famPath, sao)
 
                     Utils.Log(string.Format("Family Ready...", ""));
                 }
@@ -2743,6 +2745,183 @@ namespace CivilConnection
             return fi;
 
             #endregion
+        }
+
+        public static Revit.Elements.FamilyInstance AdaptiveFamilyByMultiPoints(List<MultiPoint> multiPoints, string name, string familyTemplate, string profile)
+        {
+            Utils.Log(string.Format("AdaptiveFamilyByMultiPoint started...", ""));
+
+            Autodesk.Revit.DB.Family family = null;
+
+            Revit.Elements.FamilyInstance fi = null;
+
+            Autodesk.Revit.DB.FamilyInstance rvtFI = null;
+
+            Autodesk.Revit.DB.Document famDoc = null;
+
+            Autodesk.Revit.DB.Family profileFamily = null;
+
+            Autodesk.Revit.DB.Form loftForm = null;
+
+            bool found = false;
+
+            var doc = DocumentManager.Instance.CurrentDBDocument;
+
+            TransactionManager.Instance.ForceCloseTransaction();
+
+            var famName = string.Format("{0}.rfa", name); // family name with extension .rfa
+
+            string famPath = Path.Combine(Path.GetTempPath(), famName);
+
+            var profileName = Path.GetFileNameWithoutExtension(profile); // profile family name without extension
+
+            Autodesk.Revit.ApplicationServices.Application app = DocumentManager.Instance.CurrentUIApplication.Application;
+
+            CloseDocument(app, famName);
+
+            int familyFound = GetFamilyDocument(app, famName, familyTemplate, out family, out famDoc, out rvtFI);
+
+            if (familyFound == 0)
+            {
+                return null;
+            }
+
+            if (rvtFI != null)
+            {
+                found = true;
+            }
+
+            if (famDoc != null)
+            {
+                Utils.Log(string.Format("Start Processing...", ""));
+
+                Autodesk.Revit.DB.FamilyInstance profileFI = null;
+
+                Autodesk.Revit.DB.FamilySymbol profileSymbol = null;
+
+                using (Transaction f = new Transaction(famDoc, "loadProfile"))
+                {
+                    var fho = f.GetFailureHandlingOptions();
+                    fho.SetFailuresPreprocessor(new RevitFailuresPreprocessor());
+                    f.SetFailureHandlingOptions(fho);
+                    
+                    f.Start();
+
+                    famDoc.LoadFamily(profile);
+
+                    Utils.Log(string.Format("Profile family loaded successfully", ""));
+
+                    //f.Commit();
+                    //f.Dispose();
+
+                    Options geoOptions = new Options();
+
+
+                    foreach (Autodesk.Revit.DB.FamilySymbol familySymbol in new FilteredElementCollector(famDoc)
+                        .OfClass(typeof(FamilySymbol))
+                        .OfCategory(BuiltInCategory.OST_GenericModel)
+                        .Cast<Autodesk.Revit.DB.FamilySymbol>()
+                        .Where(pf=> pf.FamilyName == profileName))
+                    {
+                        profileSymbol = familySymbol;
+                        break;
+                    }
+
+                    IList<Autodesk.Revit.DB.FamilyInstance> profiles = new List<Autodesk.Revit.DB.FamilyInstance>();
+                    List<List<Autodesk.DesignScript.Geometry.Curve>> curves = new List<List<Autodesk.DesignScript.Geometry.Curve>>();
+
+                    var refArrArr = new ReferenceArrayArray();
+
+                    foreach (MultiPoint multiPoint in multiPoints) 
+                    {
+                        Autodesk.Revit.DB.FamilyInstance profileInstance = AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(famDoc, profileSymbol);
+
+                        //Options geoOptions = new Options();
+
+                        //Autodesk.Revit.DB.GeometryElement pfGeom = profileInstance.get_Geometry(geoOptions);
+
+                        //var pfCurves = new List<Autodesk.DesignScript.Geometry.Curve>();
+
+                        IList<ElementId> placePointIds = AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(profileInstance);
+                        for (int j = 0; j < placePointIds.Count; j++)
+                        {
+                            Autodesk.Revit.DB.ReferencePoint refPoint = (Autodesk.Revit.DB.ReferencePoint)famDoc.GetElement(placePointIds[j]);
+                            refPoint.Position = multiPoint.ShapePoints.Points[j].RevitPoint.ToRevitType();
+                            
+                        }
+
+                        profiles.Add(profileInstance);
+                        Utils.Log(string.Format("profiles added to family", ""));
+                    }
+
+
+                    for (int k=0; k<profiles.Count-1; k++)
+                    {
+                        Autodesk.Revit.DB.GeometryElement ge = profiles[k].get_Geometry(geoOptions);
+                        Autodesk.Revit.DB.CurveArray curveArray = new CurveArray();
+                        Autodesk.Revit.DB.ReferenceArray refAr = new ReferenceArray();
+                                                                        
+                        foreach (GeometryObject go in ge)
+                        {
+                            Autodesk.Revit.DB.Curve curve = go as Autodesk.Revit.DB.Curve;
+                            if (null != curve)
+                            {
+                                refAr.Append(curve.Reference);
+                            }
+                            
+                        }
+
+                        refArrArr.Append(refAr);
+
+                    }
+
+                    Utils.Log(string.Format("reference array array: {0}", refArrArr.ToString()));
+                    //Autodesk.DesignScript.Geometry.Curve[][] crossSections = curves.Select(a => a.ToArray()).ToArray();
+
+                    //Revit.Elements.Form solidForm = Revit.Elements.Form.ByLoftCrossSections(crossSections,true);
+
+                    try
+                    {
+                        loftForm = famDoc.FamilyCreate.NewLoftForm(true, refArrArr);
+
+                        Utils.Log(string.Format("Loft created.", ""));
+                    }
+
+                    catch (Exception e)
+                    {
+                        Utils.Log(string.Format("Error: {0}", e.Message));
+                    }
+                        
+
+                    f.Commit();
+                    f.Dispose();
+
+                    var sao = new SaveAsOptions();
+                    sao.OverwriteExistingFile = true;
+                    sao.Compact = true;
+                    sao.MaximumBackups = 1;
+
+                    Utils.Log(string.Format("Family saving..."));
+                    try
+                    {
+                        famDoc.SaveAs(famPath, sao);
+                        Utils.Log(string.Format("Family saved"));
+                    }
+
+                    catch (Exception ex)
+                    {
+                        Utils.Log(string.Format("Error: {0}", ex.Message));
+                    }
+                    
+                }
+
+            }
+
+            fi = UpdateFamilyInstance(famPath, rvtFI, found);
+
+            Utils.Log(string.Format("Mass.AdaptiveFamilyByMultiPoint completed.", ""));
+
+            return fi;
         }
 
         #endregion

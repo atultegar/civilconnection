@@ -195,6 +195,24 @@ namespace CivilConnection
         #region PUBLIC METHODS
 
         /// <summary>
+        /// #TODO
+        /// </summary>
+        /// <returns></returns>
+        public IList<Point> GetPoints()
+        {
+            IList<Point> points = new List<Point>();
+
+            PolyCurve pc = this._geometry as PolyCurve;
+
+            foreach (Curve c in pc.Curves())
+            {
+                points.Add(c.StartPoint);
+            }   
+                        
+            return points;
+        }
+
+        /// <summary>
         /// Public textual representation of the Dynamo node preview
         /// </summary>
         /// <returns>

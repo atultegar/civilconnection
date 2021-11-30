@@ -11,17 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 // implied.  See the License for the specific language governing
 // permissions and limitations under the License.
+using Autodesk.AECC.Interop.Land;
 using Autodesk.DesignScript.Geometry;
 using Autodesk.DesignScript.Runtime;
+using Autodesk.Revit.Creation;
+using Autodesk.Revit.DB;
+using Dynamo.Graph.Nodes.CustomNodes;
 using DynamoServices;
 using Revit.Elements;
 using RevitServices.Persistence;
+using RevitServices.Transactions;
 using System;
 using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Xml.Serialization;
 using ADSK_Parameters = CivilConnection.UtilsObjectsLocation.ADSK_Parameters;
+
 
 namespace CivilConnection
 {
@@ -71,7 +77,7 @@ namespace CivilConnection
         #region PRIVATE METHODS
 
         /// <exclude />
-        private Element ToHorizontalFloor(FloorType floorType, Level level)
+        private Revit.Elements.Element ToHorizontalFloor(Revit.Elements.FloorType floorType, Revit.Elements.Level level)
         {
             Utils.Log(string.Format("MultiPoint.ToHorizontalFloor started...", ""));
 
@@ -84,9 +90,9 @@ namespace CivilConnection
 
                 PolyCurve outline = PolyCurve.ByPoints(this.ShapePoints.Points.Select(p => p.RevitPoint).ToList(), true);
 
-                outline = PolyCurve.ByJoinedCurves(outline.PullOntoPlane(Plane.XY()).Explode().Cast<Curve>().ToList());
+                outline = PolyCurve.ByJoinedCurves(outline.PullOntoPlane(Autodesk.DesignScript.Geometry.Plane.XY()).Explode().Cast<Autodesk.DesignScript.Geometry.Curve>().ToList());
 
-                var output = Floor.ByOutlineTypeAndLevel(outline, floorType, level);
+                var output = Revit.Elements.Floor.ByOutlineTypeAndLevel(outline, floorType, level);
 
                 output.SetParameterByName(ADSK_Parameters.Instance.MultiPoint.Name, SerializeJSON());
 
@@ -102,6 +108,9 @@ namespace CivilConnection
 
             
         }
+
+        
+
 
         #endregion
 
@@ -122,7 +131,7 @@ namespace CivilConnection
         /// </summary>
         /// <param name="element">The Revit element.</param>
         /// <returns></returns>
-        public static MultiPoint ByElement(Element element)
+        public static MultiPoint ByElement(Revit.Elements.Element element)
         {
             string parameter = element.GetParameterValueByName(ADSK_Parameters.Instance.MultiPoint.Name) as string;
 
@@ -141,7 +150,7 @@ namespace CivilConnection
         /// <param name="level">The level.</param>
         /// <param name="structural">if set to <c>true</c> [structural].</param>
         /// <returns></returns>
-        public Element ToFloor(FloorType floorType, Level level, bool structural = true)
+        public Revit.Elements.Element ToFloor(Revit.Elements.FloorType floorType, Revit.Elements.Level level, bool structural = true)
         {
             Utils.Log(string.Format("MultiPoint.ToFloor started...", ""));
 
@@ -159,7 +168,7 @@ namespace CivilConnection
                     System.Windows.Forms.MessageBox.Show("Outline is null");
                 }
 
-                Element output = null;
+                Revit.Elements.Element output = null;
 
                 try
                 {
@@ -169,7 +178,7 @@ namespace CivilConnection
                 {
                     Utils.Log(string.Format("ERROR: MultiPoint.ToFloor {0}", ex.Message));
 
-                    output = Floor.ByOutlineTypeAndLevel(outline, floorType, level);
+                    output = Revit.Elements.Floor.ByOutlineTypeAndLevel(outline, floorType, level);
                 }
 
                 output.SetParameterByName(ADSK_Parameters.Instance.MultiPoint.Name, this.SerializeJSON());
@@ -194,7 +203,7 @@ namespace CivilConnection
         /// </summary>
         /// <param name="familyType">Type of the family.</param>
         /// <returns></returns>
-        public AdaptiveComponent ToAdaptiveComponent(FamilyType familyType)
+        public AdaptiveComponent ToAdaptiveComponent(Revit.Elements.FamilyType familyType)
         {
             Utils.Log(string.Format("MultiPoint.ToAdaptiveComponent started...", ""));
 
@@ -207,7 +216,7 @@ namespace CivilConnection
                     UtilsObjectsLocation.CheckParameters(DocumentManager.Instance.CurrentDBDocument); 
                 }
 
-                output = AdaptiveComponent.ByPoints(new Point[][] { this.ShapePoints.Points.Select(p => p.RevitPoint).ToArray() }, familyType)[0];
+                output = AdaptiveComponent.ByPoints(new Autodesk.DesignScript.Geometry.Point[][] { this.ShapePoints.Points.Select(p => p.RevitPoint).ToArray() }, familyType)[0];
                 output.SetParameterByName(ADSK_Parameters.Instance.MultiPoint.Name, this.SerializeJSON());
                 output.SetParameterByName(ADSK_Parameters.Instance.Update.Name, 1);
                 output.SetParameterByName(ADSK_Parameters.Instance.Delete.Name, 0);
@@ -221,6 +230,13 @@ namespace CivilConnection
 
             return output;
         }
+
+        //#TODO public Element UpdateAdaptiveComponent(Element element)
+        //{
+            
+        //    output =  
+        //    return output;
+        //}
 
         /// <summary>
         /// Serializes this instance.
@@ -251,7 +267,7 @@ namespace CivilConnection
         /// Serializes to json.
         /// </summary>
         /// <returns></returns>
-        [IsVisibleInDynamoLibrary(false)]
+        [IsVisibleInDynamoLibrary(true)]
         public string SerializeJSON()
         {
             Utils.Log(string.Format("MultiPoint.SerializeJSON started...", ""));

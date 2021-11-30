@@ -70,35 +70,103 @@ namespace CivilConnection
         /// <returns>
         /// The List of Elevations
         /// </returns>
-        public List<object> GetElevationAtPoint(List<Point> points)  // author: Atul Tegar
+        public double GetElevationAtPoint(Point point)  // author: Atul Tegar
         {
             Utils.Log(string.Format("CivilSurface.GetElevationAtPoint started...", ""));
+            double elevation;
+            //List<object> elevations = new List<object>();
 
-            List<object> elevations = new List<object>();
+            //foreach (Point point in points)
+            //{
+            //    try
+            //    {
+            //        double elevation = Math.Round(this._surface.FindElevationAtXY(point.X, point.Y), 5);
 
-            foreach (Point point in points)
+            //        elevations.Add(elevation);
+            //    }
+
+            //    catch (Exception ex)
+            //    {
+            //        // elevations.Add("The surface elevation at selected point is not found.");
+            //        Utils.Log(string.Format("ERROR: CivilSurface.GetElevationAtPoint: The surface elevation at selected point is not found, {0}", ex.Message));
+
+            //        elevations.Add(null);
+            //    }
+            //}
+
+            try
             {
-                try
-                {
-                    double elevation = Math.Round(this._surface.FindElevationAtXY(point.X, point.Y), 5);
-
-                    elevations.Add(elevation);
-                }
-
-                catch (Exception ex)
-                {
-                    // elevations.Add("The surface elevation at selected point is not found.");
-                    Utils.Log(string.Format("ERROR: CivilSurface.GetElevationAtPoint: The surface elevation at selected point is not found, {0}", ex.Message));
-
-                    elevations.Add(null);
-                }
+                elevation = Math.Round(this._surface.FindElevationAtXY(point.X, point.Y), 5);
+            }
+            catch (Exception ex)
+            {
+                Utils.Log(string.Format("ERROR: CivilSurface.GetElevationAtPoint: The surface elevation at selected point is not found, {0}", ex.Message));
+                elevation = double.NaN; 
             }
 
             Utils.Log(string.Format("CivilSurface.GetElevationAtPoint completed.", ""));
 
-            return elevations;
+            return elevation;
         }
 
+        /// <summary>
+        /// Get minimum surface elevation around a point
+        /// </summary>
+        /// <param name="point">The point</param>
+        /// <param name="r">The radius around point</param>
+        /// <param name="angle">The angle increment</param>
+        /// <returns>
+        /// The minimum elevation
+        /// </returns>
+        public double MinElevationAroundPoint(Point point, double r, double angle)
+        {
+            List<double> elevations = new List<double>();
+            double theta = 0.0;
+            int n = Convert.ToInt32(360 / angle);
+            double p1Z = Math.Round(this._surface.FindElevationAtXY(point.X, point.Y), 3);
+            elevations.Add(p1Z);
+
+            for (int i = 0; i < n; i++)
+            {
+                double pX = Math.Round(point.X + r * Math.Cos(theta * Math.PI / 180), 3);
+                double pY = Math.Round(point.Y + r * Math.Sin(theta * Math.PI / 180), 3);
+                double pZ = Math.Round(this._surface.FindElevationAtXY(pX, pY), 3);
+                theta = theta + angle;
+                elevations.Add(pZ);
+            }
+                       
+            return elevations.Min();
+        }
+
+
+        /// <summary>
+        /// get maximum surface elevation around a point
+        /// </summary>
+        /// <param name="point"></param>
+        /// <param name="r"></param>
+        /// <param name="angle"></param>
+        /// <returns></returns>
+        public double MaxElevationAroundPoint(Point point, double r, double angle)
+        {
+            List<double> elevations = new List<double>();
+            double theta = 0.0;
+            int n = Convert.ToInt32(360 / angle);
+            double p1Z = Math.Round(this._surface.FindElevationAtXY(point.X, point.Y), 3);
+            elevations.Add(p1Z);
+
+            for (int i = 0; i < n; i++)
+            {
+                double pX = Math.Round(point.X + r * Math.Cos(theta * Math.PI / 180), 3);
+                double pY = Math.Round(point.Y + r * Math.Sin(theta * Math.PI / 180), 3);
+                double pZ = Math.Round(this._surface.FindElevationAtXY(pX, pY), 3);
+                theta = theta + angle;
+                elevations.Add(pZ);
+            }
+
+            return elevations.Max();
+        }
+
+        // #TODO : update code with List<Point> GetElevationsAlongLine(Line line)
         /// <summary>
         /// Gets all surface points along line
         /// </summary>
@@ -142,6 +210,59 @@ namespace CivilConnection
 
             return pointsOnLine;
         }
+
+        /// <summary>
+        /// Gets all surface points along line
+        /// </summary>
+        /// <param name="line">The lines to process</param>
+        /// <returns>
+        /// The List of Points
+        /// </returns>
+        public List<Point> GetPointsAlongLine(Line line)  // Renamed as it confuses people
+        {
+            Utils.Log(string.Format("CivilSurface.GetPointsAlongLine started...", ""));
+
+            List<Point> pointsOnLine = new List<Point>();
+
+            //Point startPoint = null;
+
+            //Point endPoint = null;
+
+            Point startPoint = line.StartPoint;
+
+            Point endPoint = line.EndPoint;
+
+            try
+            {
+                double[] surfacePoints = this._surface.SampleElevations(startPoint.X, startPoint.Y, endPoint.X, endPoint.Y);
+
+                for (int i = 0; i < surfacePoints.Length; i += 3)
+                {
+                    double pX = surfacePoints[i];
+
+                    double pY = surfacePoints[i + 1];
+
+                    double pZ = surfacePoints[i + 2];
+
+                    Point point = Point.ByCoordinates(pX, pY, pZ);
+
+                    pointsOnLine.Add(point);
+                }
+            }
+            catch (Exception ex)
+            {
+                Utils.Log(string.Format("ERROR: CivilSurface.GetPointsAlongLine: The surface points along selected line are not found, {0}", ex.Message));
+                pointsOnLine.Add(null);
+            }
+
+            startPoint.Dispose();
+            endPoint.Dispose();
+
+            Utils.Log(string.Format("CivilSurface.GetPointsAlongLine completed.", ""));
+
+            return pointsOnLine;
+        }
+
 
         /// <summary>
         /// Get all surface points

@@ -60,44 +60,79 @@ namespace CivilConnection
         internal AeccRoadwayApplication GetApplication()
         {
             Utils.Log(string.Format("GetApplication started...", ""));
+            string[] acadProdIds = new string[] {
+                "AutoCAD.Application.24.0", // 2021
+                "AutoCAD.Application.23.1", // 2020
+                "AutoCAD.Application.23", // 2019
+                "AutoCAD.Application.22", // 2018
+                "AutoCAD.Application.21", // 2017
+                "AutoCAD.Application.20.1" // 2016
+            };
 
-            string m_sAcadProdID = "AutoCAD.Application";
+            
 
             string[] progids = new string[] {
+                "AeccXUiRoadway.AeccRoadwayApplication.13.3", // 2021
                 "AeccXUiRoadway.AeccRoadwayApplication.13.2", // 2020
                 "AeccXUiRoadway.AeccRoadwayApplication.13.0", // 2019
                 "AeccXUiRoadway.AeccRoadwayApplication.12.0", // 2018
                 "AeccXUiRoadway.AeccRoadwayApplication.11.0", // 2017
                 "AeccXUiRoadway.AeccRoadwayApplication.10.5" // 2016
-            }; 
+            };
 
-            AcadApplication m_oAcadApp = System.Runtime.InteropServices.Marshal.GetActiveObject(m_sAcadProdID) as AcadApplication;
-
-            // Roadway application
 
             dynamic output = null;
-
-            foreach (string r_sAeccAppProgId in progids)
+            for (int i = 0; i < acadProdIds.Length; i += 1)
             {
                 try
                 {
-                    output = m_oAcadApp.GetInterfaceObject(r_sAeccAppProgId);
+                    AcadApplication m_oAcadApp = System.Runtime.InteropServices.Marshal.GetActiveObject(acadProdIds[i]) as AcadApplication;
+                    output = m_oAcadApp.GetInterfaceObject(progids[i]);
 
                     if (output != null)
                     {
                         break;
                     }
                 }
-                catch 
+                catch
                 {
                     continue;
                 }
+
             }
-            //return m_oAcadApp.GetInterfaceObject(r_sAeccAppProgId);
 
             Utils.Log(string.Format("GetApplication completed.", ""));
 
             return output;
+
+
+
+
+            // Roadway application
+
+
+
+            //foreach (string r_sAeccAppProgId in progids)
+            //{
+            //    try
+            //    {
+            //        output = m_oAcadApp.GetInterfaceObject(r_sAeccAppProgId);
+
+            //        if (output != null)
+            //        {
+            //            break;
+            //        }
+            //    }
+            //    catch 
+            //    {
+            //        continue;
+            //    }
+            //}
+            ////return m_oAcadApp.GetInterfaceObject(r_sAeccAppProgId);
+
+            //Utils.Log(string.Format("GetApplication completed.", ""));
+
+            //return output;
         }
 
         /// <summary>

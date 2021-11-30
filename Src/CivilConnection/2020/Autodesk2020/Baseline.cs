@@ -31,6 +31,9 @@ using Autodesk.DesignScript.Runtime;
 using Autodesk.DesignScript.Geometry;
 using System.Xml;
 using System.IO;
+using Autodesk.Revit.DB;
+using Point = Autodesk.DesignScript.Geometry.Point;
+using Revit.GeometryConversion;
 
 namespace CivilConnection
 {
@@ -100,7 +103,7 @@ namespace CivilConnection
         /// <value>
         /// The internal element.
         /// </value>
-        internal object InternalElement { get { return this._baseline; } }
+        public object InternalElement { get { return this._baseline; } }
         /// <summary>
         /// Gets the index of the Baseline in the Corridor
         /// </summary>
@@ -227,7 +230,7 @@ namespace CivilConnection
             double side = 0;
             int ri = -1;
             Point lastPoint = null;
-           
+
 
             string xmlPath = Path.Combine(Environment.GetEnvironmentVariable("TMP", EnvironmentVariableTarget.User), string.Format("CorridorFeatureLines_{0}.xml", this._corridor.Name));  // Revit 2020 changed the path to the temp at a session level
 
@@ -355,7 +358,7 @@ namespace CivilConnection
                                             else
                                             {
                                                 lastRi = ri - 1;
-                                            } 
+                                            }
 
                                             if (points.Count > 0)
                                             {
@@ -498,7 +501,7 @@ namespace CivilConnection
                     }
                     catch (Exception ex)
                     {
-                       Utils.Log(string.Format("ERROR: Baseline.GetFeaturelinesFromXML failed {0}", ex.Message));
+                        Utils.Log(string.Format("ERROR: Baseline.GetFeaturelinesFromXML failed {0}", ex.Message));
                     }
                 }
 
@@ -570,7 +573,7 @@ namespace CivilConnection
                     res = output;
                     break;
                 }
-               
+
                 output += 1;
             }
 
@@ -933,9 +936,9 @@ namespace CivilConnection
         /// </summary>
         /// <param name="code">the Featurelines code.</param>
         /// <returns></returns>
-        private IList<IList<Featureline>> GetFeaturelinesByCode_(string code)  // 1.1.0
+        public IList<IList<Featureline>> GetFeaturelinesByCode_(string code)  // 1.1.0
         {
-            Utils.Log(string.Format("Baseline.GetFeaturelinesByCode({0}) Started...", code));
+            Utils.Log(string.Format("Baseline.GetFeaturelinesByCode_({0}) Started...", code));
 
             IList<IList<Featureline>> blFeaturelines = new List<IList<Featureline>>();
 
@@ -1122,7 +1125,7 @@ namespace CivilConnection
             //}
             #endregion
 
-            Utils.Log(string.Format("Baseline.GetFeaturelinesByCode() Completed.", code));
+            Utils.Log(string.Format("Baseline.GetFeaturelinesByCode_() Completed.", code));
 
             return blFeaturelines;
         }
@@ -1138,6 +1141,45 @@ namespace CivilConnection
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="codes"></param>
+        /// <returns></returns>
+        //public List<List<List<ShapePoint>>> GetFeaturelinePointsByCode(List<string> codes)
+        //{
+        //    AeccBaseline oBaseline = (AeccBaseline)this.InternalElement;
+        //    AeccBaselineFeatureLines oBaselineFeaturelines = oBaseline.MainBaselineFeatureLines;
+        //    AeccBaselineFeatureLinesCol oFeatureLinesCol = (AeccBaselineFeatureLinesCol)oBaselineFeaturelines.FeatureLinesCol;
+
+        //    int lineCol = oFeatureLinesCol.Count;
+
+        //    List<ShapePoint> sPointList = new List<ShapePoint>();
+        //    List<List<List<ShapePoint>>> output = new List<List<List<ShapePoint>>>();
+
+        //    foreach (AeccFeatureLines oFeatureLines in oFeatureLinesCol)
+        //    {
+        //        foreach (AeccFeatureLine oFeatureLine in oFeatureLines)
+        //        {
+        //            foreach (AeccFeatureLinePoint oFeatureLinePoint in oFeatureLine.FeatureLinePoints)
+        //            {
+        //                ShapePoint sp = new ShapePoint();
+        //                sp.UniqueId = Guid.NewGuid().ToString();
+
+        //                sp.Corridor = oFeatureLine.Corridor.Name.ToString();
+        //                sp.Code = oFeatureLine.CodeName.ToString();
+        //                sp.Station = oFeatureLinePoint.Station;
+        //                Point point = (oFeatureLinePoint.XYZ as XYZ).ToPoint();
+        //                sp.SetPoint(point);
+        //                sPointList.Add(sp);
+
+        //            }
+        //        }
+        //    }
+        //    return sPointList;
+
+        //}
+
+        /// <summary>
         /// Public textual representation of the Dynamo node preview
         /// </summary>
         /// <returns>
@@ -1150,4 +1192,5 @@ namespace CivilConnection
 
         #endregion
     }
+    
 }

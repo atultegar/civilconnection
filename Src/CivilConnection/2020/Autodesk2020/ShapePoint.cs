@@ -15,7 +15,7 @@ using Autodesk.DesignScript.Geometry;
 using Autodesk.DesignScript.Runtime;
 using Newtonsoft.Json;
 using System;
-
+using System.Collections.Generic;
 
 namespace CivilConnection
 {
@@ -244,6 +244,69 @@ namespace CivilConnection
         {
             ShapePoint sp = new ShapePoint(point, featureline);
 
+            return sp;
+        }
+
+        /// <summary>
+        /// Creates the shapepoint
+        /// </summary>
+        /// <param name="featureline"></param>
+        /// <param name="station"></param>
+        /// <returns>
+        /// The ShapePoint
+        /// </returns>
+        public static ShapePoint ByFeaturelineStation(Featureline featureline, double station)
+        {
+            //Point point = featureline.PointAtStation(station);
+            double d = double.MaxValue;
+            
+            Point point1 = null;
+            Point p = null;
+            ShapePoint sp = null;
+
+            var cs = featureline.Baseline.CoordinateSystemByStation(station);
+
+            Plane zxPlane = cs.ZXPlane;
+
+            try
+            {
+                var intersections = featureline.Curve.Intersect(zxPlane);
+
+                foreach (var result in intersections)
+                {
+                    if (result is Point)
+                    {
+                        Point r = result as Point;
+                        double dist = cs.Origin.DistanceTo(point1);
+                        if (dist < d)
+                        {
+                            p = r;
+                            dist = d;
+                        }
+                    }
+                }
+            }
+
+            catch (Exception ex)
+            {
+                Utils.Log(string.Format("ERROR: {0}", ex.Message));
+
+                throw new Exception(ex.Message);
+            }
+
+            if (null != p)
+            {
+                sp = new ShapePoint(point1, featureline);
+            }
+
+            else
+            {
+                sp = null;
+                Utils.Log(string.Format("No intersection found"));
+                               
+            }
+
+            Utils.Log(string.Format("ShapePoint.ByFeaturelineStation completed.", ""));
             return sp;
         }
 

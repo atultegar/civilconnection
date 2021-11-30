@@ -30,6 +30,7 @@ using System.Reflection;
 using ADSK_Parameters = CivilConnection.UtilsObjectsLocation.ADSK_Parameters;
 
 
+
 namespace CivilConnection
 {
     /// <summary>
@@ -663,22 +664,30 @@ namespace CivilConnection
 
             CoordinateSystem cs = null;
 
-            if (SessionVariables.DocumentTotalTransform != null)
-            {
-                cs = SessionVariables.DocumentTotalTransform;
-            }
-            else
-            {
-                var doc = DocumentManager.Instance.CurrentDBDocument;
+            //if (SessionVariables.DocumentTotalTransform != null)
+            //{
+            //    cs = SessionVariables.DocumentTotalTransform;
+            //}
+            //else
+            //{
+            //    var doc = DocumentManager.Instance.CurrentDBDocument;
 
-                var location = doc.ActiveProjectLocation;
+            //    var location = doc.ActiveProjectLocation;
 
-                var transform = location.GetTotalTransform();
+            //    var transform = location.GetTotalTransform();
 
-                cs = CoordinateSystem.ByOriginVectors(transform.Origin.ToPoint(), transform.BasisX.ToVector(), transform.BasisY.ToVector(), transform.BasisZ.ToVector());
+            //    cs = CoordinateSystem.ByOriginVectors(transform.Origin.ToPoint(), transform.BasisX.ToVector(), transform.BasisY.ToVector(), transform.BasisZ.ToVector());
 
-                SessionVariables.DocumentTotalTransform = cs;
-            }
+            //    SessionVariables.DocumentTotalTransform = cs;
+            //}
+
+            var doc = DocumentManager.Instance.CurrentDBDocument;
+
+            var location = doc.ActiveProjectLocation;
+
+            var transform = location.GetTotalTransform();
+
+            cs = CoordinateSystem.ByOriginVectors(transform.Origin.ToPoint(), transform.BasisX.ToVector(), transform.BasisY.ToVector(), transform.BasisZ.ToVector());
 
             Utils.Log(string.Format("RevitUtils.DocumentTotalTransform completed.", ""));
 

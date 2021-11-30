@@ -433,6 +433,7 @@ namespace CivilConnection
 
                                     if (points.Count > 2)  // 20190715
                                     {
+                                        // TODO: make list of points in single loop
                                         PolyCurve pc = PolyCurve.ByPoints(points, true);
 
                                         //Utils.Log("Polycurve created...");

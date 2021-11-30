@@ -205,6 +205,8 @@ namespace CivilConnection
             return this._profile.ElevationAt(station);
         }
 
+
+
         /// <summary>
         /// Gets the elevations of the entities in the profile.
         /// </summary>
@@ -363,7 +365,98 @@ namespace CivilConnection
             return stations;
         }
 
+        // In Progress
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public IList<Curve> GetEntitiesCurves()
+        {
+            IList<Curve> curves = new List<Curve>();
 
+            Dictionary<double, IAeccProfileEntity> entities = new Dictionary<double, IAeccProfileEntity>();
+
+            foreach (IAeccProfileEntity ent in _profile.Entities)
+            {
+                double start = 0;
+
+                if (ent.Type == AeccProfileEntityType.aeccProfileEntityTangent)
+                {
+                    var c = ent as aeccProfileTangent;
+                    start = c.StartStation;
+                    entities.Add(start, c);
+                }
+                else if (ent.Type == AeccProfileEntityType.aeccProfileEntityCurveSymmetricParabola)
+                {
+                    var c = ent as AeccProfileCurveParabolic;
+                    start = c.StartStation;
+                    entities.Add(start, c);
+                }
+                else if (ent.Type == AeccProfileEntityType.aeccProfileEntityCurveCircular)
+                {
+                    var c = ent as aeccProfileCurveCircular;
+                    start = c.StartStation;
+                    entities.Add(start, c);
+                }
+                else if (ent.Type == AeccProfileEntityType.aeccProfileEntityCurveAsymmetricParabola)
+                {
+                    var c = ent as AeccProfileCurveAsymmetric;
+                    start = c.StartStation;
+                    entities.Add(start, c);
+                }
+            }
+
+            double[] stations = entities.Keys.OrderBy(x => x).ToArray();
+
+            for (int i = 0; i < stations.Length; ++i)
+            {
+                double s = stations[i];
+
+                IAeccProfileEntity ent = entities[s];
+
+                if (ent.Type == AeccProfileEntityType.aeccProfileEntityTangent)
+                {
+                    var c = ent as aeccProfileTangent;
+                    curves.Add(Line.ByStartPointEndPoint(
+                        Point.ByCoordinates(c.StartStation, c.StartElevation), 
+                        Point.ByCoordinates(c.EndStation, c.EndElevation)));
+                }
+                else if (ent.Type == AeccProfileEntityType.aeccProfileEntityCurveSymmetricParabola)
+                {
+                    var c = ent as AeccProfileCurveParabolic;
+                    // #TODO : make parabola as a curve
+                    curves.Add(Line.ByStartPointEndPoint(
+                        Point.ByCoordinates(c.StartStation, c.StartElevation),
+                        Point.ByCoordinates(c.HighLowPointStation, c.HighLowPointElevation)));
+                    curves.Add(Line.ByStartPointEndPoint(
+                        Point.ByCoordinates(c.HighLowPointStation, c.HighLowPointElevation),
+                        Point.ByCoordinates(c.EndStation, c.EndElevation)));
+                    
+                }
+                else if (ent.Type == AeccProfileEntityType.aeccProfileEntityCurveCircular)
+                {
+                    var c = ent as aeccProfileCurveCircular;
+                    
+                    curves.Add(Arc.ByThreePoints(
+                        Point.ByCoordinates(c.StartStation, c.StartElevation), 
+                        Point.ByCoordinates(c.HighLowPointStation, c.HighLowPointElevation), 
+                        Point.ByCoordinates(c.EndStation, c.EndElevation)));
+                }
+                else if (ent.Type == AeccProfileEntityType.aeccProfileEntityCurveAsymmetricParabola)
+                {
+                    var c = ent as AeccProfileCurveAsymmetric;
+                    // #TODO : make parabola as a curve
+                    curves.Add(Line.ByStartPointEndPoint(
+                        Point.ByCoordinates(c.StartStation, c.StartElevation),
+                        Point.ByCoordinates(c.HighLowPointStation, c.HighLowPointElevation)));
+                    curves.Add(Line.ByStartPointEndPoint(
+                        Point.ByCoordinates(c.HighLowPointStation, c.HighLowPointElevation),
+                        Point.ByCoordinates(c.EndStation, c.EndElevation)));
+                }
+            }
+
+            return curves;
+        }
 
         /// <summary>
         /// Returns a <see cref="System.String" /> that represents this instance.

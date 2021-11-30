@@ -306,7 +306,7 @@ namespace CivilConnection
                 Utils.Log(string.Format("ERROR: {0}", message));
 
                 //findIntersection = false;
-                //return null;
+                return null;
             }
 
             cs = this._baseline.CoordinateSystemByStation(station);

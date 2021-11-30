@@ -378,6 +378,94 @@ namespace CivilConnection
             return output;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="codes"></param>
+        /// <returns></returns>
+        public List<List<List<List<Point>>>> GetFeatureLinePointsByCode(List<string> codes)
+        {
+            List<List<List<List<Point>>>> output = new List<List<List<List<Point>>>>();
+
+            foreach (AeccBaseline b in this._corridor.Baselines)
+            {
+                List<List<List<Point>>> baseline = new List<List<List<Point>>>();
+
+                foreach (AeccBaselineRegion blr in b.BaselineRegions)
+                {
+                    List<List<Point>> region = new List<List<Point>>();
+                    List<List<Point>> region1 = new List<List<Point>>();
+                    
+                    foreach (string code in codes)
+                    {
+                        foreach (AeccFeatureLines coll in b.MainBaselineFeatureLines.FeatureLinesCol)
+                        {
+                            
+                            foreach (AeccFeatureLine f in coll)
+                            {
+                                if (f.CodeName == code)
+                                {
+                                    List<Point> featureline = new List<Point>();
+                                    foreach (AeccFeatureLinePoint p in f.FeatureLinePoints)
+                                    {
+                                        if (p.Station >= blr.StartStation && p.Station <= blr.EndStation)
+                                        {
+                                            Point point = Point.ByCoordinates(p.XYZ[0], p.XYZ[1], p.XYZ[2]);
+
+                                            featureline.Add(point);
+                                        }
+                                    }
+                                    region.Add(featureline);
+                                }
+                                   
+                            }
+                            
+                            
+                        }
+                    }
+                    if (region.Count > 0)
+                    {
+                        //int cols = region[0].Count();
+                        //int rows = region.Count();
+
+                        //Utils.Log(cols.ToString());
+                        //Utils.Log(rows.ToString());
+
+                        //List<List<Point>> region2 = new List<List<Point>>();
+
+                        //for (int col = 0; col < cols; col++)
+                        //{
+                        //    List<Point> region3 = new List<Point>();
+                        //    for (int row = 0; row < rows; row++)
+                        //    {
+                        //        region3.Add(region[row][col]);
+                        //    }
+                        //    region2.Add(region3);
+                        //}
+
+
+                        region1 = region
+                            .SelectMany(inner => inner.Select((item, index) => new { item, index }))
+                            .GroupBy(i => i.index, i => i.item)
+                            .Select(g => g.ToList())
+                            .ToList();
+
+
+                    }
+
+                    baseline.Add(region1);
+
+                }
+
+                if (baseline.Count > 0)
+                    output.Add(baseline);
+            }
+
+            return output;
+        }
+
+        
+
         [MultiReturn(new string[] { "Featurelines" })]
         private Dictionary<string, object> TestCorridorInfo_Old(string code)
         {
@@ -640,6 +728,36 @@ namespace CivilConnection
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sCode"></param>
+        /// <returns></returns>
+        public IList<IList<IList<AppliedSubassemblyShape>>> GetShapesByCode(string sCode)
+        {
+            IList<IList<IList<AppliedSubassemblyShape>>> outShapes = new List<IList<IList<AppliedSubassemblyShape>>>();
+            IList<IList<IList<AppliedSubassemblyShape>>> corridorShapes = GetShapesFromXML();
+
+
+            foreach (IList<IList<AppliedSubassemblyShape>> shapeList in corridorShapes)
+            {
+                IList<IList<AppliedSubassemblyShape>> newShapeList = new List<IList<AppliedSubassemblyShape>>();
+                foreach (IList<AppliedSubassemblyShape> shapes in shapeList)
+                {
+                    IList<AppliedSubassemblyShape> newShapes = new List<AppliedSubassemblyShape>();
+                    foreach (AppliedSubassemblyShape shape in shapes)
+                    {
+                        if (shape.Codes[0] == sCode)
+                            newShapes.Add(shape);
+                    }
+                    newShapeList.Add(newShapes);
+                }
+                outShapes.Add(newShapeList);
+            }
+
+            return outShapes;
+        }
+        
+        /// <summary>
         /// Returns a collection of AppliedSubassemblyLinks in the Corridor.
         /// </summary>
         /// <returns></returns>
@@ -856,6 +974,34 @@ namespace CivilConnection
             return Utils.GetFeaturelines(this);
         }
 
+        #region MyCode
+        
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public IList<IList<IList<Featureline>>> GetFeaturelinesDirect()
+        {
+            Utils.Log(string.Format("Corridor.GetFeaturelinesDirect started...", ""));
+
+            IList<IList<IList<Featureline>>> corridorFeaturelines = new List<IList<IList<Featureline>>>();
+
+            IList<string> codes = this.GetCodes();
+
+            foreach (Baseline b in this.Baselines)
+            {
+                foreach (string code in codes)
+                {
+                    corridorFeaturelines.Add(b.GetFeaturelinesByCode_(code));
+                }
+            }
+            
+            Utils.Log(string.Format("Corridor.GetFeaturelinesDirect completed...", ""));
+
+            return corridorFeaturelines;
+        }
+
+        #endregion
         /// <summary>
         /// Gets the subassembly points organized by: Corridor &gt; Baseline &gt; Region &gt; Assembly &gt; Subassembly.
         /// </summary>
