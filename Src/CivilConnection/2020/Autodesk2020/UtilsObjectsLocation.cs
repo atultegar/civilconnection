@@ -128,7 +128,16 @@ namespace CivilConnection
 
             XmlDocument xmlDoc = new XmlDocument();
 
-            string folderPath = Path.GetDirectoryName(DocumentManager.Instance.CurrentDBDocument.PathName);
+            string docPath = DocumentManager.Instance.CurrentDBDocument.PathName;
+
+            if (string.IsNullOrEmpty(docPath) || string.IsNullOrWhiteSpace(docPath))
+            {
+                // The Revit file has not being saved yet.
+                docPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), DocumentManager.Instance.CurrentDBDocument.Title);
+                Utils.Log(string.Format("The Revit Document has not yet been saved...", ""));
+            }
+
+            string folderPath = Path.GetDirectoryName(docPath);
 
             if (folderPath.StartsWith("BIM 360:"))
             {
@@ -165,7 +174,7 @@ namespace CivilConnection
             var name = xmlDoc.CreateAttribute("name");
             var user = xmlDoc.CreateAttribute("user");
             var date = xmlDoc.CreateAttribute("date");
-            project.SetAttribute("name", DocumentManager.Instance.CurrentDBDocument.PathName);
+            project.SetAttribute("name", docPath);
             project.SetAttribute("user", DocumentManager.Instance.CurrentUIApplication.Application.Username);
             project.SetAttribute("date", DateTime.Now.ToString());
 
@@ -543,7 +552,14 @@ namespace CivilConnection
 
             IList<Revit.Elements.Element> excluded = new List<Revit.Elements.Element>();
 
-            string folderPath = Path.GetDirectoryName(DocumentManager.Instance.CurrentDBDocument.PathName);
+            string docPath = DocumentManager.Instance.CurrentDBDocument.PathName;
+
+            if (string.IsNullOrWhiteSpace(docPath) || string.IsNullOrEmpty(docPath))
+            {
+                docPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), DocumentManager.Instance.CurrentDBDocument.Title);
+            }
+
+            string folderPath = Path.GetDirectoryName(docPath);
 
             if (folderPath.StartsWith("BIM 360:"))
             {
@@ -625,10 +641,7 @@ namespace CivilConnection
                 {
                     currentElements.Add(e);
                 }
-                //else
-                //{
-                //    excluded.Add(e);
-                //}
+               
             }
 
             foreach (Revit.Elements.Element e in elements)
@@ -637,10 +650,7 @@ namespace CivilConnection
                 {
                     currentLineElements.Add(e);
                 }
-                //else
-                //{
-                //    excluded.Add(e);
-                //}
+                
             }
 
             foreach (Revit.Elements.Element e in elements)
@@ -649,10 +659,7 @@ namespace CivilConnection
                 {
                     currentMPElements.Add(e);
                 }
-                //else
-                //{
-                //    excluded.Add(e);
-                //}
+                
             }
             #endregion
 
@@ -754,9 +761,10 @@ namespace CivilConnection
                     // for each group it was used one featureline
                     Featureline tempFeat = null;
 
-                    if (blr == null)  // the region index isnot valid anymore -> use the closest region
+                    if (blr == null)  // the region index is not valid anymore -> use the closest region
                     {
                         blr = bl.GetBaselineRegions().Where(x => x != null).OrderBy(r => Math.Abs(eleStation - 0.5 * (r.End + r.Start))).First(g => g.Stations.Count() > 0); // 1.1.0
+                        Utils.Log(string.Format("BaselineRegionIndex is no longer valid, the closest Region will be used instead.", ""));
                     }
 
                     // Scenario 1: the featureline is compatible with the parameters of the list and all the elements are in range
@@ -1016,9 +1024,6 @@ namespace CivilConnection
                     // Check if the featureline is still valid
                     #endregion
                 }
-
-                //string output = "";
-                //int i = 0;
             }
             #endregion
 
@@ -1034,9 +1039,7 @@ namespace CivilConnection
             #region MULTIPOINT
             // if there are multi point objects
 
-            // TaskDialog.Show("DEBUG", string.Format("CurrentElement: {0}\nCurrent MultiPoint: {1}", currentElements.Count, currentMPElements.Count));
             // Featureline optimization for MultiPoint objects
-            // Dictionary <UniqueId Featureline>
             Dictionary<string, Featureline> multiPointFeaturelines = new Dictionary<string, Featureline>();
 
             Dictionary<string, Tuple<string, int, int, double, double, double, string, Tuple<string>>> tuples = new Dictionary<string, Tuple<string, int, int, double, double, double, string, Tuple<string>>>();
@@ -1127,8 +1130,6 @@ namespace CivilConnection
 
                 tempFeat = bl.GetFeaturelinesByCodeStation(set.Item7, blr.Start + 0.5 * blr.RelativeEnd).First(x => x.Side.ToString() == set.Rest.Item1);  // 1.1.0
 
-                // var featureline = corridor.Baselines[set.Item2].GetFeaturelinesByCodeStation(set.Item7, set.Item4).First(x => x.Side.ToString() == set.Rest.Item1);  // 1.1.0
-
                 if (tempFeat != null)
                 {
                     foreach (var pair in tuples)
@@ -1179,25 +1180,13 @@ namespace CivilConnection
                                 throw new Exception(string.Format("The MultiPoint cannot be updated\n\n{0}", element.Id));
                             }
 
-                            // IList<ShapePoint> shapePoints = new List<ShapePoint>();
-
-                            //foreach (ShapePoint sp in mp.ShapePoints.Points)
-                            //{
-                            //    shapePoints.Add(UpdateShapePoint(civilDocument, sp));
-                            //}
-
                             foreach (ShapePoint sp in mp.ShapePoints.Points)
                             {
                                 Featureline f = multiPointFeaturelines[sp.UniqueId];
 
                                 sp.UpdateByFeatureline(f);  // 1.1.0 TODO Check the normalized and relative region logic in here
 
-                                //var p = f.PointByStationOffsetElevation(sp.Station, sp.Offset, sp.Elevation, false);
-
-                                //sp.SetPoint(p);
                             }
-
-                            // mp.ShapePoints = new ShapePoints(shapePoints);
 
                             Element internalElement = element.InternalElement;
 
@@ -1302,10 +1291,6 @@ namespace CivilConnection
             {
                 Featureline featureline = pair.Key;
 
-                // output += string.Format("[{0}] Featureline {1}\n", i, featureline.Code);
-
-                //int j = 0;
-
                 foreach (Revit.Elements.Element element in pair.Value)
                 {
                     // Delete objects to be removed
@@ -1326,81 +1311,7 @@ namespace CivilConnection
 
                         if (multipoint != "<None>" && multipoint != "" && multipoint != null)
                         {
-                            #region MULTIPOINT_1
-                            //    // Adaptive Component
-                            //    // Floor
-                            //    // Potentially walls with edited profile
-                            //    MultiPoint mp = Newtonsoft.Json.JsonConvert.DeserializeObject<MultiPoint>(multipoint);
-
-                            //    // TaskDialog.Show("CivilConnection", string.Format("{0}", mp));
-
-                            //    if (null == mp)
-                            //    {
-                            //        throw new Exception(string.Format("The MultiPoint cannot be updated\n\n{0}", element.Id));
-                            //    }
-
-                            //    IList<ShapePoint> shapePoints = new List<ShapePoint>();
-
-                            //    // TODO Optimize, group ShapePoint by Featureline
-
-                            //    foreach (ShapePoint sp in mp.ShapePoints.Points)
-                            //    {
-                            //        shapePoints.Add(UpdateShapePoint(civilDocument, sp));
-                            //    }
-
-                            //    mp.ShapePoints = new ShapePoints(shapePoints);
-
-                            //    Element internalElement = element.InternalElement;
-
-                            //    if (internalElement is Floor)
-                            //    {
-                            //        Revit.Elements.Floor floor = element as Revit.Elements.Floor;
-                            //        Revit.Elements.FloorType ft = Revit.Elements.FloorType.ByName(floor.Name);
-                            //        Revit.Elements.Level level = element.GetParameterValueByName("Level") as Revit.Elements.Level;
-
-                            //        //TODO: Fix this part is necessary
-
-                            //        // It is not possible to udpate a floor boundary via Revit API, so we need to delete the old element first
-                            //        // RevitServices.Transactions.TransactionManager.Instance.EnsureInTransaction(DocumentManager.Instance.CurrentDBDocument);
-
-                            //        // DocumentManager.Instance.CurrentDBDocument.Delete(element.InternalElement.Id);
-
-                            //        // RevitServices.Transactions.TransactionManager.Instance.TransactionTaskDone();
-
-                            //        //var fl = mp.ToFloor(ft, level);
-                            //        //fl.SetParameterByName(ADSK_Parameters.Instance.MultiPoint.Name, mp.SerializeJSON());
-                            //        //fl.SetParameterByName(ADSK_Parameters.Instance.Update.Name, 1);
-                            //        //fl.SetParameterByName(ADSK_Parameters.Instance.Delete.Name, 0);
-                            //        //var index = elements.IndexOf(element);
-                            //        //elements.Insert(index, fl);
-                            //    }
-                            //    else if (internalElement is FamilyInstance)
-                            //    {
-                            //        FamilyInstance fi = internalElement as FamilyInstance;
-                            //        if (AdaptiveComponentInstanceUtils.IsAdaptiveComponentInstance(fi))
-                            //        {
-                            //            Revit.Elements.AdaptiveComponent ac = element as Revit.Elements.AdaptiveComponent;
-
-                            //            var pnts = mp.ShapePoints.Points.OrderBy(i => i.Id).Select(x => x.RevitPoint.ToXyz()).ToList();
-
-                            //            IList<ElementId> placePointIds = AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(fi);
-
-                            //            if (placePointIds.Count() != pnts.Count())
-                            //                throw new Exception("The points provided are mismatching");
-
-                            //            int count = placePointIds.Count;
-                            //            for (int i = 0; i < count; i++)
-                            //            {
-                            //                var point = (Autodesk.Revit.DB.ReferencePoint)DocumentManager.Instance.CurrentDBDocument.GetElement(placePointIds[i]);
-                            //                point.Position = pnts[i];
-                            //            }
-
-                            //            element.SetParameterByName(ADSK_Parameters.Instance.MultiPoint.Name, mp.SerializeJSON());
-                            //            element.SetParameterByName(ADSK_Parameters.Instance.Update.Name, 1);
-                            //            element.SetParameterByName(ADSK_Parameters.Instance.Delete.Name, 0);
-                            //        }
-                            //    }
-                            #endregion
+                           
                         }
 
                         else
@@ -1490,14 +1401,12 @@ namespace CivilConnection
 
                                     var currentRotation = lp.Rotation;
 
-                                    //var temp = Vector.XAxis().Rotate(Vector.ZAxis(), RadiansToDeg(currentRotation)).Transform(cs);
-
                                     var xAxis = cs.XAxis.Transform(totalTransform) as Autodesk.DesignScript.Geometry.Vector;
 
                                     lp.Rotate(Autodesk.Revit.DB.Line.CreateBound(lp.Point, lp.Point + XYZ.BasisZ),
                                         -currentRotation
                                         + DegToRadians(angle
-                                        //cs.XAxis.AngleAboutAxis(temp, cs.ZAxis)
+                                        
                                         - xAxis.AngleAboutAxis(Vector.XAxis(), Vector.ZAxis())
                                         ));
 
@@ -1634,11 +1543,7 @@ namespace CivilConnection
                 //++i;
             }
 
-            //System.Windows.Forms.MessageBox.Show(output);
-
             RevitUtils.ExportXML(true);  // 1.1.0
-
-            totalTransform.Dispose();
 
             Utils.Log(string.Format("UtilsObjectsLocation.OptimizedUdpateObjectFromXML completed.", ""));
 
@@ -1679,20 +1584,10 @@ namespace CivilConnection
                 // TODO Add Relative and/or Normalized check
                 Featureline f = corridor.Baselines[baselineIndex].GetFeaturelinesByCodeStation(code, station).First(x => x.Side == side);  // 1.1.0
 
-                //try
-                //{
-                //    f = corridor.GetFeaturelinesByCode(code)[baselineIndex][regionIndex].First(x => x.Side == side);
-                //}
-                //catch { }
-
                 if (f != null)
                 {
                     sp1 = sp.Copy(sp.Id);
                     sp1 = sp1.UpdateByFeatureline(f);  // 1.1.0
-
-                    //Autodesk.DesignScript.Geometry.Point p = f.PointByStationOffsetElevation(station, offset, elevation, false);
-                    //sp1 = new ShapePoint(p, f);
-                    //sp1.SetId(sp.Id);
                 }
             }
 
@@ -1878,16 +1773,6 @@ namespace CivilConnection
         {
             Utils.Log(string.Format("UtilsObjectsLocation.TestUdpateObject started...", ""));
 
-            //XmlDocument xmlDoc = new XmlDocument();
-            //string path = Path.ChangeExtension(DocumentManager.Instance.CurrentDBDocument.PathName, "xml");
-
-            //if (!File.Exists(path))
-            //{
-            //    return element;
-            //}
-
-            //xmlDoc.Load(path);
-
             var totalTransform = RevitUtils.DocumentTotalTransform();
 
             if (element is Revit.Elements.FamilyInstance)
@@ -1896,17 +1781,7 @@ namespace CivilConnection
                 bool found = false;
                 if (fi.Location is Autodesk.DesignScript.Geometry.Point)
                 {
-                    //foreach (XmlElement n in xmlDoc.GetElementsByTagName("PointObject"))
-                    //{
-                    //    var uid = n.InnerText;
-                    //    var e = Revit.Elements.ElementSelector.ByUniqueId(uid, true);
-                    //    if (e != null)
-                    //    {
-                    //        found = true;
-                    //        break;
-                    //    }
-                    //}
-
+                    
                     found = true;
 
                     if (found)
@@ -2125,8 +2000,6 @@ namespace CivilConnection
                 }
             }
 
-            totalTransform.Dispose();
-
             Utils.Log(string.Format("UtilsObjectsLocation.TestUdpateObject completed.", ""));
 
             return element;
@@ -2140,7 +2013,6 @@ namespace CivilConnection
         /// </summary>
         /// <param name="e">The e.</param>
         /// <returns></returns>
-        /// <exception cref="ArgumentException">Element is neither an MEP curve nor a fitting.</exception>
         private static ConnectorManager GetConnectorManager(Element e)
         {
             Utils.Log(string.Format("UtilsObjectsLocation.GetConnectorManager started...", ""));
@@ -2352,10 +2224,7 @@ namespace CivilConnection
                 Parameter pStation = fi.Parameters.Cast<Parameter>().First(g => g.Definition.Name == ADSK_Parameters.Instance.Station.Name);
                 Parameter pOffset = fi.Parameters.Cast<Parameter>().First(g => g.Definition.Name == ADSK_Parameters.Instance.Offset.Name);
                 Parameter pElevation = fi.Parameters.Cast<Parameter>().First(g => g.Definition.Name == ADSK_Parameters.Instance.Elevation.Name);
-                //Parameter pAngleX = fi.Parameters.Cast<Parameter>().First(g => g.Definition.Name == "ADSK_AngleX");
-                //Parameter pAngleY = fi.Parameters.Cast<Parameter>().First(g => g.Definition.Name == "ADSK_AngleY");
                 Parameter pAngleZ = fi.Parameters.Cast<Parameter>().First(g => g.Definition.Name == ADSK_Parameters.Instance.AngleZ.Name);
-                //Parameter pCreate = fi.Parameters.Cast<Parameter>().First(g => g.Definition.Name == "ADSK_Create");
                 Parameter pUpdate = fi.Parameters.Cast<Parameter>().First(g => g.Definition.Name == ADSK_Parameters.Instance.Update.Name);
                 Parameter pDelete = fi.Parameters.Cast<Parameter>().First(g => g.Definition.Name == ADSK_Parameters.Instance.Delete.Name);
 
@@ -2410,10 +2279,7 @@ namespace CivilConnection
                 double station = 0;
                 double offset = 0;
                 double elevation = 0;
-                //double angleX = 0;
-                //double angleY = 0;
                 double angleZ = 0;
-                //int create = 0;
                 int update = 1;
                 int delete = 0;
 
@@ -2514,15 +2380,6 @@ namespace CivilConnection
                     {
                         Featureline fl = corridor.GetFeaturelinesByCode(code)[baselineIndex][regIndex].First(f => f.Side.ToString() == pSide.AsString());
 
-                        //if (pSide.AsString() == "Left")
-                        //{
-                        //    fl = corridor.GetFeaturelinesByCode(code)[baselineIndex][regIndex].First(f => f.Side == Featureline.SideType.Left);
-                        //}
-                        //else if (pSide.AsString() == "Right")
-                        //{
-                        //    fl = corridor.GetFeaturelinesByCode(code)[baselineIndex][regIndex].First(f => f.Side == Featureline.SideType.Right);
-                        //}
-
                         CoordinateSystem cs = fl.CoordinateSystemByStation(station);
 
                         angleZ = 0;
@@ -2563,10 +2420,6 @@ namespace CivilConnection
                     side = pSide.AsString();
                 }
 
-                //if (pCreate.HasValue)
-                //{
-                //    create = pCreate.AsInteger();
-                //}
                 if (pUpdate.HasValue)
                 {
                     update = pUpdate.AsInteger();
@@ -2597,7 +2450,7 @@ namespace CivilConnection
 
             var totalTransform = RevitUtils.DocumentTotalTransform();
 
-            var totalTransformInverse = totalTransform.Inverse();
+            var totalTransformInverse = RevitUtils.DocumentTotalTransformInverse();
 
             if (!SessionVariables.ParametersCreated)
             {
@@ -2605,8 +2458,6 @@ namespace CivilConnection
             }
             Autodesk.DesignScript.Geometry.Point locationPBP = familyInstance.Location;
             Autodesk.DesignScript.Geometry.Point locationWCS = locationPBP.Transform(totalTransformInverse) as Autodesk.DesignScript.Geometry.Point;
-
-            //Corridor corridor = civilDocument.GetCorridors().First();
 
             object[] data = new object[19];
 
@@ -2645,14 +2496,11 @@ namespace CivilConnection
 
             locationPBP.Dispose();
             locationWCS.Dispose();
-            totalTransform.Dispose();
-            totalTransformInverse.Dispose();
 
             Utils.Log(string.Format("UtilsObjectsLocation.ObjectLocationParameters completed.", ""));
 
 
             return new object[] { uniqueId, elementId, typeId, familyName, typeName, mark, corridorName, baselineIndex, code, side, x, y, z, station, offset, elevation, 
-                //angleX, angleY, 
                 angleZ, update, delete };
         }
 
@@ -2667,7 +2515,7 @@ namespace CivilConnection
 
             var totalTransform = RevitUtils.DocumentTotalTransform();
 
-            var totalTransformInverse = totalTransform.Inverse();
+            var totalTransformInverse = RevitUtils.DocumentTotalTransformInverse();
 
 
             AbstractMEPCurve mep = linearMEPCurve as AbstractMEPCurve;
@@ -2785,10 +2633,6 @@ namespace CivilConnection
 
             endPBP.Dispose();
             endWCS.Dispose();
-
-            totalTransform.Dispose();
-
-            totalTransformInverse.Dispose();
 
             Utils.Log(string.Format("UtilsObjectsLocation.LinearObjectLocationParameters completed.", ""));
 
@@ -2924,6 +2768,115 @@ namespace CivilConnection
             }
         }
 
+
+#if (C2022 || C2023)
+        /// <summary>
+        /// Returns a raw of parameters to be used for creation for a given parameter Type
+        /// </summary>
+        /// <param name="doc">The document.</param>
+        /// <param name="parameter">The parameter.</param>
+        /// <param name="type">The ForgeTypeId of the parameter</param>
+        /// <param name="visible">if set to <c>true</c> [visible].</param>
+        /// <param name="userModifiable">if set to <c>true</c> [user modifiable].</param>
+        /// <param name="cats">The cats.</param>
+        /// <param name="group">The group.</param>
+        /// <param name="inst">if set to <c>true</c> [inst].</param>
+        /// <returns></returns>
+        public static ExternalDefinition RawCreateProjectParameter(Document doc, ADSK_Parameter parameter, ForgeTypeId type, bool visible, bool userModifiable, CategorySet cats, BuiltInParameterGroup group, bool inst)
+        {
+            Utils.Log(string.Format("UtilsObjectsLocation.RawCreateProjectParameter {0} started...", parameter.Name));
+
+            ExternalDefinition def = null;
+
+            CategorySet cs2 = new CategorySet();
+
+            string oriFile = doc.Application.SharedParametersFilename;
+
+            string tempFile = Path.Combine(Path.GetTempPath(), "SharedParameters_CivilConnection.txt");
+
+            if (!File.Exists(tempFile))
+            {
+                using (File.Create(tempFile)) { }
+            }
+
+            doc.Application.SharedParametersFilename = tempFile;
+
+            string name = parameter.Name;
+
+            ExternalDefinitionCreationOptions edco = new ExternalDefinitionCreationOptions(name, type);
+
+            edco.GUID = new Guid(parameter.GUID);
+
+            edco.UserModifiable = userModifiable;
+
+            edco.Visible = visible;
+
+            def = doc.Application.OpenSharedParameterFile().Groups.Create("TemporaryDefintionGroup").Definitions.Create(edco) as ExternalDefinition;
+
+            BindingMap bm = doc.ParameterBindings;
+
+            foreach (Category cat in cats)
+            {
+                // Loop all Binding Definitions
+                // IMPORTANT NOTE: Categories.Size is ALWAYS 1 !?
+                // For multiple categories, there is really one
+                // pair per each category, even though the
+                // Definitions are the same...
+
+                DefinitionBindingMapIterator iter
+                    = doc.ParameterBindings.ForwardIterator();
+
+                bool found = true;
+
+                while (iter.MoveNext())
+                {
+                    if (iter.Key.Name == name)
+                    {
+                        ElementBinding eb = (ElementBinding)iter.Current;
+
+                        foreach (Category catEB in eb.Categories)
+                        {
+                            if (catEB.Id.IntegerValue.Equals(cat.Id.IntegerValue))
+                            {
+                                if (type == iter.Key.GetDataType())
+                                {
+                                    if (group == iter.Key.ParameterGroup)
+                                    {
+                                        found = false;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (found)
+                    cs2.Insert(cat);
+            }
+
+            if (cs2.Size > 0)
+            {
+                doc.Application.SharedParametersFilename = oriFile;
+
+                Autodesk.Revit.DB.Binding binding = doc.Application.Create.NewTypeBinding(cs2);
+
+                if (inst) binding = doc.Application.Create.NewInstanceBinding(cs2);
+
+                BindingMap map = (new UIApplication(doc.Application)).ActiveUIDocument.Document.ParameterBindings;
+
+                map.Insert(def, binding, group);
+            }
+
+            File.Delete(tempFile);
+
+            Utils.Log(string.Format("UtilsObjectsLocation.RawCreateProjectParameter completed.", ""));
+
+            return def;
+        }
+
+
+#else
         /// <summary>
         /// Returns a raw of parameters to be used for creation.
         /// </summary>
@@ -3029,6 +2982,7 @@ namespace CivilConnection
             return def;
         }
 
+#endif
         /// <summary>
         /// Checks the parameters.
         /// </summary>
@@ -3052,7 +3006,25 @@ namespace CivilConnection
 
                 ADSK_Parameters par = ADSK_Parameters.Instance;
 
-                //RawCreateProjectParameter(doc, "ADSK_Civil", ParameterType.Text, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+#if (C2022 || C2023)
+                RawCreateProjectParameter(doc, par.Corridor, SpecTypeId.String.Text, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.BaselineIndex, SpecTypeId.Int.Integer, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.RegionIndex, SpecTypeId.Int.Integer, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.RegionRelative, SpecTypeId.Length, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.RegionNormalized, SpecTypeId.Number, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.Code, SpecTypeId.String.Text, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.Side, SpecTypeId.String.Text, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.X, SpecTypeId.Length, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.Y, SpecTypeId.Length, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.Z, SpecTypeId.Length, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.Station, SpecTypeId.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.Offset, SpecTypeId.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.Elevation, SpecTypeId.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.AngleZ, SpecTypeId.Angle, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.Update, SpecTypeId.Boolean.YesNo, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.Delete, SpecTypeId.Boolean.YesNo, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.MultiPoint, SpecTypeId.String.Text, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+#else
                 RawCreateProjectParameter(doc, par.Corridor, ParameterType.Text, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.BaselineIndex, ParameterType.Integer, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.RegionIndex, ParameterType.Integer, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
@@ -3066,14 +3038,11 @@ namespace CivilConnection
                 RawCreateProjectParameter(doc, par.Station, ParameterType.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.Offset, ParameterType.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.Elevation, ParameterType.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
-                //RawCreateProjectParameter(doc, "ADSK_AngleX", ParameterType.Angle, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
-                //RawCreateProjectParameter(doc, "ADSK_AngleY", ParameterType.Angle, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.AngleZ, ParameterType.Angle, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
-                //RawCreateProjectParameter(doc, "ADSK_Create", ParameterType.YesNo, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.Update, ParameterType.YesNo, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.Delete, ParameterType.YesNo, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.MultiPoint, ParameterType.Text, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
-
+#endif
 
                 cs.Clear();
 
@@ -3098,12 +3067,19 @@ namespace CivilConnection
                     }
                 }
 
+#if (C2022 || C2023)
+                RawCreateProjectParameter(doc, par.EndStation, SpecTypeId.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.EndOffset, SpecTypeId.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.EndElevation, SpecTypeId.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.EndRegionRelative, SpecTypeId.Length, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
+                RawCreateProjectParameter(doc, par.EndRegionNormalized, SpecTypeId.Number, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
+#else
                 RawCreateProjectParameter(doc, par.EndStation, ParameterType.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.EndOffset, ParameterType.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.EndElevation, ParameterType.Length, true, true, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.EndRegionRelative, ParameterType.Length, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
                 RawCreateProjectParameter(doc, par.EndRegionNormalized, ParameterType.Number, true, false, cs, BuiltInParameterGroup.PG_DATA, true);
-
+#endif
                 RevitServices.Transactions.TransactionManager.Instance.TransactionTaskDone();
 
                 doc.Regenerate();
@@ -3175,16 +3151,16 @@ namespace CivilConnection
                 }
             }
 
-            #region DELETE
+#region DELETE
             if (deleteIds.Count > 0)
             {
                 RevitServices.Transactions.TransactionManager.Instance.EnsureInTransaction(doc);
                 doc.Delete(deleteIds);
                 RevitServices.Transactions.TransactionManager.Instance.TransactionTaskDone();
             }
-            #endregion
+#endregion
 
-            #region UPDATE
+#region UPDATE
             if (updateIds.Count > 0)
             {
                 RevitServices.Transactions.TransactionManager.Instance.EnsureInTransaction(doc);
@@ -3334,7 +3310,7 @@ namespace CivilConnection
 
                             if (null != data[i][13])
                             {
-                                station = Convert.ToDouble(data[i][13]);
+                                station = Convert.ToDouble(data[i][13], System.Globalization.CultureInfo.InvariantCulture);
                             }
 
                             if (station < baseline.Start || station > baseline.End)
@@ -3366,21 +3342,19 @@ namespace CivilConnection
 
                             if (null != data[i][14])
                             {
-                                offset = Convert.ToDouble(data[i][14]);
+                                offset = Convert.ToDouble(data[i][14], System.Globalization.CultureInfo.InvariantCulture);
                             }
 
                             if (null != data[i][15])
                             {
-                                elevation = Convert.ToDouble(data[i][15]);
+                                elevation = Convert.ToDouble(data[i][15], System.Globalization.CultureInfo.InvariantCulture);
                             }
 
-                            //double angleX = 0;
-                            //double angleY = 0;
                             double angleZ = 0;
 
                             if (null != data[i][18])
                             {
-                                angleZ = Convert.ToDouble(data[i][18]);
+                                angleZ = Convert.ToDouble(data[i][18], System.Globalization.CultureInfo.InvariantCulture);
                             }
 
                             UpdateFamilyInstance(familyInstance, familyType, fl, !useFeatureLine, station, offset, elevation, angleZ);
@@ -3390,9 +3364,9 @@ namespace CivilConnection
                     }
                 }
             }
-            #endregion
+#endregion
 
-            #region CREATE
+#region CREATE
             if (createIds.Count > 0)
             {
                 foreach (int i in createIds)
@@ -3510,7 +3484,7 @@ namespace CivilConnection
 
                     if (null != data[i][13])
                     {
-                        station = Convert.ToDouble(data[i][13]);
+                        station = Convert.ToDouble(data[i][13], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (station < baseline.Start || station > baseline.End)
@@ -3542,12 +3516,12 @@ namespace CivilConnection
 
                     if (null != data[i][14])
                     {
-                        offset = Convert.ToDouble(data[i][14]);
+                        offset = Convert.ToDouble(data[i][14], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (null != data[i][15])
                     {
-                        elevation = Convert.ToDouble(data[i][15]);
+                        elevation = Convert.ToDouble(data[i][15], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (null != data[i][5])
@@ -3560,7 +3534,7 @@ namespace CivilConnection
                     created.Add(CreateFamilyInstance(familyType, fl, !useFeatureLine, station, offset, elevation, angleZ));
                 }
             }
-            #endregion
+#endregion
             // Read 
 
             //TODO: new data output to overwrite the original
@@ -3738,7 +3712,7 @@ namespace CivilConnection
 
                     if (null != data[i][13])
                     {
-                        station = Convert.ToDouble(data[i][13]);
+                        station = Convert.ToDouble(data[i][13], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (station < baseline.Start || station > baseline.End)
@@ -3773,17 +3747,17 @@ namespace CivilConnection
 
                     if (null != data[i][14])
                     {
-                        offset = Convert.ToDouble(data[i][14]);
+                        offset = Convert.ToDouble(data[i][14], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (null != data[i][15])
                     {
-                        elevation = Convert.ToDouble(data[i][15]);
+                        elevation = Convert.ToDouble(data[i][15], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (null != data[i][18])
                     {
-                        angleZ = Convert.ToDouble(data[i][18]);
+                        angleZ = Convert.ToDouble(data[i][18], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     familyInstances.Add(fi);
@@ -3975,7 +3949,7 @@ namespace CivilConnection
 
                     if (null != data[i][13])
                     {
-                        station = Convert.ToDouble(data[i][13]);
+                        station = Convert.ToDouble(data[i][13], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (station < baseline.Start || station > baseline.End)
@@ -4010,17 +3984,17 @@ namespace CivilConnection
 
                     if (null != data[i][14])
                     {
-                        offset = Convert.ToDouble(data[i][14]);
+                        offset = Convert.ToDouble(data[i][14], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (null != data[i][15])
                     {
-                        elevation = Convert.ToDouble(data[i][15]);
+                        elevation = Convert.ToDouble(data[i][15], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (null != data[i][18])
                     {
-                        angleZ = Convert.ToDouble(data[i][18]);
+                        angleZ = Convert.ToDouble(data[i][18], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     familyTypes.Add(Revit.Elements.ElementSelector.ByUniqueId(type.UniqueId) as Revit.Elements.FamilyType);
@@ -4142,8 +4116,6 @@ namespace CivilConnection
                         mark = i.ToString();
                     }
 
-                    //systemTypeId = systemTypes.First(x => x.Name == systemName).Id;
-
                     // TODO: Filter by MEPSystemType Domain
                     if (systemName != "" && systemName != "CableTrayConduit")
                     {
@@ -4243,7 +4215,7 @@ namespace CivilConnection
 
                     if (null != data[i][13])
                     {
-                        startStation = Convert.ToDouble(data[i][13]);
+                        startStation = Convert.ToDouble(data[i][13], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (startStation < baseline.Start || startStation > baseline.End)
@@ -4253,17 +4225,17 @@ namespace CivilConnection
 
                     if (null != data[i][14])
                     {
-                        startOffset = Convert.ToDouble(data[i][14]);
+                        startOffset = Convert.ToDouble(data[i][14], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (null != data[i][15])
                     {
-                        startElevation = Convert.ToDouble(data[i][15]);
+                        startElevation = Convert.ToDouble(data[i][15], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (null != data[i][19])
                     {
-                        endStation = Convert.ToDouble(data[i][19]);
+                        endStation = Convert.ToDouble(data[i][19], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (endStation < baseline.Start || endStation > baseline.End)
@@ -4273,12 +4245,12 @@ namespace CivilConnection
 
                     if (null != data[i][20])
                     {
-                        endOffset = Convert.ToDouble(data[i][20]);
+                        endOffset = Convert.ToDouble(data[i][20], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (null != data[i][21])
                     {
-                        endElevation = Convert.ToDouble(data[i][21]);
+                        endElevation = Convert.ToDouble(data[i][21], System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     Autodesk.DesignScript.Geometry.Line line = Autodesk.DesignScript.Geometry.Line.ByStartPointEndPoint(
@@ -4310,13 +4282,15 @@ namespace CivilConnection
         [IsVisibleInDynamoLibrary(false)]
         public static Revit.Elements.FamilyInstance UpdateFamilyInstance(Revit.Elements.FamilyInstance familyInstance, Revit.Elements.FamilyType familyType, Featureline featureline, bool useBaseline = false, double station = 0, double offset = 0, double elevation = 0, double angleZ = 0)
         {
+            // TODO There could be a BIG improvement if we handle a single Revit Transaction for all the objects.
+            // The caveat is to porvide also a list for each of all the other parameters (e.g. stations, offsets, elevations, etc.)
             Utils.Log(string.Format("UtilsObjectsLocation.UpdateFamilyInstance started...", ""));
 
             Document doc = DocumentManager.Instance.CurrentDBDocument;
 
             var totalTransform = RevitUtils.DocumentTotalTransform();
 
-            var totalTransformInverse = totalTransform.Inverse();
+            var totalTransformInverse = RevitUtils.DocumentTotalTransformInverse();
 
             RevitServices.Transactions.TransactionManager.Instance.TransactionTaskDone();
 
@@ -4332,12 +4306,10 @@ namespace CivilConnection
             if (!useBaseline)
             {
                 cs = featureline.CoordinateSystemByStation(station);
-                // newLocPoint = featureline.PointByStationOffsetElevation(station, offset, elevation, false);
             }
             else
             {
                 cs = featureline.Baseline.CoordinateSystemByStation(station);
-                // newLocPoint = featureline.Baseline.PointByStationOffsetElevation(station, offset, elevation);
             }
 
             newLocPoint = Autodesk.DesignScript.Geometry.Point.ByCoordinates(offset, 0, elevation).Transform(cs) as Autodesk.DesignScript.Geometry.Point;
@@ -4352,6 +4324,8 @@ namespace CivilConnection
             {
                 var temp = newLocPoint.Transform(totalTransform) as Autodesk.DesignScript.Geometry.Point;
                 lp.Point = temp.ToXyz();
+
+                temp.Dispose();
             }
 
             FamilyInstance fi = familyInstance.InternalElement as FamilyInstance;
@@ -4369,10 +4343,7 @@ namespace CivilConnection
             familyInstance.SetParameterByName(ADSK_Parameters.Instance.X.Name, Math.Round(newLocPoint.X, 3));
             familyInstance.SetParameterByName(ADSK_Parameters.Instance.Y.Name, Math.Round(newLocPoint.Y, 3));
             familyInstance.SetParameterByName(ADSK_Parameters.Instance.Z.Name, Math.Round(newLocPoint.Z, 3));
-            //familyInstance.SetParameterByName("ADSK_AngleX", 0);
-            //familyInstance.SetParameterByName("ADSK_AngleY", 0);
             familyInstance.SetParameterByName(ADSK_Parameters.Instance.AngleZ.Name, Math.Round(angleZ, 3));
-            //familyInstance.SetParameterByName("ADSK_Create", 0);
             familyInstance.SetParameterByName(ADSK_Parameters.Instance.Update.Name, 1);
             familyInstance.SetParameterByName(ADSK_Parameters.Instance.Delete.Name, 0);
 
@@ -4380,14 +4351,14 @@ namespace CivilConnection
 
             cs.Dispose();
 
-            totalTransform.Dispose();
-
-            totalTransformInverse.Dispose();
+            newLocPoint.Dispose();
 
             Utils.Log(string.Format("UtilsObjectsLocation.UpdateFamilyInstance completed.", ""));
 
             return familyInstance;
         }
+
+
 
         /// <summary>
         /// Creates the family instance.
@@ -4419,19 +4390,16 @@ namespace CivilConnection
             if (!useBaseline)
             {
                 cs = featureline.CoordinateSystemByStation(station);
-                // newLocPoint = featureline.PointByStationOffsetElevation(station, offset, elevation, false);  // TODO Get the point from the CS transforming the origin
             }
             else
             {
                 cs = featureline.Baseline.CoordinateSystemByStation(station);
-                // newLocPoint = featureline.Baseline.PointByStationOffsetElevation(station, offset, elevation);
             }
 
             newLocPoint = Autodesk.DesignScript.Geometry.Point.ByCoordinates(offset, 0, elevation).Transform(cs) as Autodesk.DesignScript.Geometry.Point;
 
             Utils.Log(string.Format("newLocPoint: {0}", newLocPoint));
 
-            // Transform transform = doc.ActiveProjectLocation.GetTotalTransform();
             // totalTransform : WCS to PBP
             // totalTransform.Inverse : PBP to WCS
 
@@ -4446,8 +4414,6 @@ namespace CivilConnection
             RevitServices.Transactions.TransactionManager.Instance.TransactionTaskDone();
 
             var xAxis = cs.XAxis.Transform(totalTransform) as Autodesk.DesignScript.Geometry.Vector;
-
-            // familyInstance.SetRotation(cs.XAxis.AngleAboutAxis(Vector.XAxis(), cs.ZAxis) + angleZ + RadiansToDeg(newAngle));
 
             familyInstance.SetRotation(xAxis.AngleAboutAxis(Vector.XAxis(), cs.ZAxis) + angleZ);  // [20181007]
 
@@ -4518,13 +4484,10 @@ namespace CivilConnection
 
             Utils.Log(string.Format("ADSK_Z: {0}", Math.Round(newLocPoint.Z, 3)));
 
-            //familyInstance.SetParameterByName("ADSK_AngleX", 0);
-            //familyInstance.SetParameterByName("ADSK_AngleY", 0);
             familyInstance.SetParameterByName(ADSK_Parameters.Instance.AngleZ.Name, Math.Round(angleZ, 3));
 
             Utils.Log(string.Format("ADSK_AngleZ: {0}", Math.Round(angleZ, 3)));
 
-            //familyInstance.SetParameterByName("ADSK_Create", 0);
             familyInstance.SetParameterByName(ADSK_Parameters.Instance.Update.Name, 1);
 
             Utils.Log(string.Format("ADSK_Update: {0}", true));
@@ -4535,7 +4498,7 @@ namespace CivilConnection
 
             cs.Dispose();
             newLocPoint.Dispose();
-            totalTransform.Dispose();
+            xAxis.Dispose();
 
             Utils.Log(string.Format("UtilsObjectsLocation.CreateFamilyInstance completed.", ""));
 
@@ -4634,8 +4597,8 @@ namespace CivilConnection
 
             RevitServices.Transactions.TransactionManager.Instance.TransactionTaskDone();
 
-            totalTransform.Dispose();
             origin.Dispose();
+            xLocal.Dispose();
 
             Utils.Log(string.Format("UtilsObjectsLocation.RevitLinkByStationOffsetElevation completed.", ""));
 
@@ -4732,8 +4695,8 @@ namespace CivilConnection
 
             RevitServices.Transactions.TransactionManager.Instance.TransactionTaskDone();
 
-            totalTransform.Dispose();
             xLocal.Dispose();
+            origin.Dispose();
 
             Utils.Log(string.Format("UtilsObjectsLocation.NamedSiteByStationOffsetElevation completed.", ""));
 
@@ -4822,7 +4785,7 @@ namespace CivilConnection
 
             var totalTransform = RevitUtils.DocumentTotalTransform();
 
-            var totalTransformInverse = totalTransform.Inverse();
+            var totalTransformInverse = RevitUtils.DocumentTotalTransformInverse();
 
             if (location is Autodesk.DesignScript.Geometry.Point)
             {
@@ -4841,8 +4804,6 @@ namespace CivilConnection
                 return null;
             }
 
-            totalTransform.Dispose();
-            totalTransformInverse.Dispose();
             location.Dispose();
 
             Utils.Log(string.Format("UtilsObjectsLocation.ClosestFeaturelineByElement completed.", ""));

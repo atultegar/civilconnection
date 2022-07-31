@@ -284,238 +284,6 @@ namespace CivilConnection
             return output;
         }
 
-
-        #region Old Code
-        /// <summary>
-        /// Gets the points by code1.
-        /// </summary>
-        /// <param name="code">The code.</param>
-        /// <returns></returns>
-        private IList<IList<IList<IList<Point>>>> GetPointsByCode1(string code)
-        {
-            IList<IList<IList<IList<Point>>>> output = new List<IList<IList<IList<Point>>>>();
-
-            foreach (AeccBaseline b in this._corridor.Baselines)
-            {
-                IList<IList<IList<Point>>> baseline = new List<IList<IList<Point>>>();
-
-                foreach (AeccBaselineRegion reg in b.BaselineRegions)
-                {
-                    IList<IList<Point>> region = new List<IList<Point>>();
-
-                    foreach (AeccAppliedAssembly assembly in reg.AppliedAssemblies)
-                    {
-                        IList<Point> temp = new List<Point>();
-
-                        foreach (AeccCalculatedPoint p in assembly.GetPointsByCode(code))
-                        {
-                            dynamic soe = p.GetStationOffsetElevationToBaseline();
-
-                            if (soe[0] >= reg.StartStation && soe[0] <= reg.EndStation)
-                            {
-                                dynamic xyz = b.StationOffsetElevationToXYZ(soe);
-
-                                Point point = Point.ByCoordinates(xyz[0], xyz[1], xyz[2]);
-
-                                temp.Add(point);
-                            }
-                        }
-
-                        region.Add(temp);
-                    }
-
-                    baseline.Add(region);
-                }
-
-                output.Add(baseline);
-            }
-
-            return output;
-        }
-
-        /// <summary>
-        /// Gets the feature line points.
-        /// </summary>
-        /// <returns></returns>
-        private IList<IList<IList<IList<Point>>>> GetFeatureLinePoints()
-        {
-            IList<IList<IList<IList<Point>>>> output = new List<IList<IList<IList<Point>>>>();
-
-            foreach (AeccBaseline b in this._corridor.Baselines)
-            {
-                IList<IList<IList<Point>>> baseline = new List<IList<IList<Point>>>();
-
-                foreach (AeccBaselineRegion blr in b.BaselineRegions)
-                {
-                    IList<IList<Point>> region = new List<IList<Point>>();
-
-                    foreach (AeccFeatureLines coll in b.MainBaselineFeatureLines.FeatureLinesCol)
-                    {
-                        foreach (AeccFeatureLine f in coll)
-                        {
-                            IList<Point> featureline = new List<Point>();
-
-                            foreach (AeccFeatureLinePoint p in f.FeatureLinePoints)
-                            {
-                                if (p.Station >= blr.StartStation && p.Station <= blr.EndStation)
-                                {
-                                    Point point = Point.ByCoordinates(p.XYZ[0], p.XYZ[1], p.XYZ[2]);
-
-                                    featureline.Add(point);
-                                }
-                            }
-
-                            region.Add(featureline);
-                        }
-                    }
-
-                    baseline.Add(region);
-                }
-
-                output.Add(baseline);
-            }
-
-            return output;
-        }
-
-        [MultiReturn(new string[] { "Featurelines" })]
-        private Dictionary<string, object> TestCorridorInfo_Old(string code)
-        {
-            IList<string[]> corridorCodes = new List<string[]>();
-            IList<IList<Featureline>> corridorFeaturelines = new List<IList<Featureline>>();
-
-            foreach (Baseline bl in this.Baselines)
-            {
-                IList<Featureline> blFeaturelines = new List<Featureline>();
-
-                var b = bl._baseline;
-
-                foreach (AeccFeatureLines coll in b.MainBaselineFeatureLines.FeatureLinesCol)
-                {
-                    foreach (AeccFeatureLine f in coll)
-                    {
-                        if (f.CodeName == code)
-                        {
-                            IList<Point> featureline = new List<Point>();
-
-                            foreach (AeccFeatureLinePoint p in f.FeatureLinePoints)
-                            {
-                                Point point = Point.ByCoordinates(p.XYZ[0], p.XYZ[1], p.XYZ[2]);
-
-                                featureline.Add(point);
-                            }
-
-                            featureline = Point.PruneDuplicates(featureline);
-
-                            PolyCurve pc = PolyCurve.ByPoints(featureline);
-
-                            var offset = bl.GetArrayStationOffsetElevationByPoint(pc.PointAtParameter(0.5))[1];
-
-                            Featureline.SideType side = Featureline.SideType.Right;
-
-                            if (offset < 0)
-                            {
-                                side = Featureline.SideType.Left;
-                            }
-
-                            blFeaturelines.Add(new Featureline(bl, pc, f.CodeName, side));
-                        }
-                    }
-                }
-
-                corridorFeaturelines.Add(blFeaturelines);
-            }
-
-            return new Dictionary<string, object>() { { "Featurelines", corridorFeaturelines } };
-        }
-
-        /// <summary>
-        /// Gets the featurelines by Code &gt; Baseline &gt; Region.
-        /// </summary>
-        /// <param name="code">The code.</param>
-        /// <returns></returns>
-        private IList<IList<IList<Featureline>>> GetFeaturelinesByCode_Old1(string code)
-        {
-            IList<string[]> corridorCodes = new List<string[]>();
-            IList<IList<IList<Featureline>>> corridorFeaturelines = new List<IList<IList<Featureline>>>();
-
-            foreach (Baseline bl in this.Baselines)
-            {
-                IList<IList<Featureline>> blFeaturelines = new List<IList<Featureline>>();
-
-                var b = bl._baseline;
-
-                int regionIndex = 0;
-
-                foreach (AeccBaselineRegion region in b.BaselineRegions)
-                {
-                    IList<Featureline> regFeaturelines = new List<Featureline>();
-
-                    foreach (AeccFeatureLines coll in b.MainBaselineFeatureLines.FeatureLinesCol)
-                    {
-                        foreach (AeccFeatureLine f in coll)
-                        {
-                            if (f.CodeName == code)
-                            {
-                                IList<Point> points = new List<Point>();
-
-                                foreach (AeccFeatureLinePoint p in f.FeatureLinePoints)
-                                {
-                                    Point point = Point.ByCoordinates(p.XYZ[0], p.XYZ[1], p.XYZ[2]);
-
-                                    double s = Math.Round(bl.GetArrayStationOffsetElevationByPoint(point)[0], 5);
-
-                                    if (s >= region.StartStation || Math.Abs(s - region.StartStation) < 0.001)
-                                    {
-                                        if (s <= region.EndStation || Math.Abs(s - region.EndStation) < 0.001)
-                                        {
-                                            points.Add(point);
-                                        }
-                                    }
-                                }
-
-                                points = Point.PruneDuplicates(points);
-
-                                if (points.Count > 1)
-                                {
-                                    PolyCurve pc = PolyCurve.ByPoints(points);
-
-                                    var soeStart = bl.GetArrayStationOffsetElevationByPoint(pc.PointAtParameter(0));
-                                    var soeEnd = bl.GetArrayStationOffsetElevationByPoint(pc.PointAtParameter(1));
-                                    double offset = soeStart[1];
-
-                                    if (soeStart[0] > soeEnd[0])
-                                    {
-                                        pc = pc.Reverse() as PolyCurve;
-                                        offset = bl.GetArrayStationOffsetElevationByPoint(pc.PointAtParameter(0))[1];
-                                    }
-
-                                    Featureline.SideType side = Featureline.SideType.Right;
-
-                                    if (offset < 0)
-                                    {
-                                        side = Featureline.SideType.Left;
-                                    }
-
-                                    regFeaturelines.Add(new Featureline(bl, pc, f.CodeName, side, regionIndex));
-                                }
-                            }
-                        }
-                    }
-
-                    blFeaturelines.Add(regFeaturelines);
-
-                    regionIndex++;
-                }
-
-                corridorFeaturelines.Add(blFeaturelines);
-            }
-
-            return corridorFeaturelines;
-        }
-
-        #endregion
-
         /// <summary>
         /// Returns a collection of AppliedSubassemblyShapes in the Corridor.
         /// </summary>
@@ -592,16 +360,53 @@ namespace CivilConnection
 
                                 IList<string> codes = new List<string>();
 
-                                foreach (XmlElement c in shape.GetElementsByTagName("Code"))
+                                // 20201025 - START
+
+                                var xml_codes = shape.GetElementsByTagName("Codes");
+
+                                if (xml_codes != null)
                                 {
-                                    string code = c.Attributes["Name"].Value;
-                                    if (!codes.Contains(code))
+                                    var xml_code = shape.GetElementsByTagName("Code");
+
+                                    if (xml_code != null)
                                     {
-                                        codes.Add(code);
+                                        foreach (XmlElement c in xml_code)
+                                        {
+                                            string code = c.Attributes["Name"].Value;
+                                            if (!codes.Contains(code))
+                                            {
+                                                codes.Add(code);
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        codes.Add("_NoCode_");
                                     }
                                 }
+                                else
+                                {
+                                    codes.Add("_NoCodes_");
+                                }
+
+                                //foreach (XmlElement c in shape.GetElementsByTagName("Code"))
+                                //{
+                                //    string code = c.Attributes["Name"].Value;
+                                //    if (!codes.Contains(code))
+                                //    {
+                                //        codes.Add(code);
+                                //    }
+                                //}
+
+                                // 20201025 - END
 
                                 points = Point.PruneDuplicates(points);
+
+                                if (points.Count < 2)
+                                {
+                                    Utils.Log(string.Format("ERROR: Not enough points to make a closed loop: {0} {1}", name, station));
+                                    continue;
+                                }
 
                                 PolyCurve pc = PolyCurve.ByPoints(points, true);
 
@@ -692,68 +497,117 @@ namespace CivilConnection
 
                             foreach (XmlElement link in region.GetElementsByTagName("Link"))
                             {
-                                IList<Point> points = new List<Point>();
+                                //Utils.Log($"Processing Link...");
 
-                                string corrName = link.Attributes["Corridor"].Value;
-                                string baselineIndex = link.Attributes["BaselineIndex"].Value;
-                                string regionIndex = link.Attributes["RegionIndex"].Value;
-                                string assembly = link.Attributes["AssemblyName"].Value;
-                                string subassembly = link.Attributes["SubassemblyName"].Value;
-                                string handle = link.Attributes["Handle"].Value;
-                                string index = link.Attributes["LinkIndex"].Value;
-                                double station = Convert.ToDouble(link.Attributes["Station"].Value, CultureInfo.InvariantCulture);
-
-                                string name = string.Join("_", corrName, baselineIndex, regionIndex, assembly, subassembly, handle, index);
-
-                                foreach (XmlElement p in link.GetElementsByTagName("Point"))
+                                try
                                 {
-                                    double x = Convert.ToDouble(p.Attributes["X"].Value, CultureInfo.InvariantCulture);
-                                    double y = Convert.ToDouble(p.Attributes["Y"].Value, CultureInfo.InvariantCulture);
-                                    double z = Convert.ToDouble(p.Attributes["Z"].Value, CultureInfo.InvariantCulture);
+                                    IList<Point> points = new List<Point>();
 
-                                    points.Add(Point.ByCoordinates(x, y, z));
-                                }
+                                    string corrName = link.Attributes["Corridor"].Value;
+                                    string baselineIndex = link.Attributes["BaselineIndex"].Value;
+                                    string regionIndex = link.Attributes["RegionIndex"].Value;
+                                    string assembly = link.Attributes["AssemblyName"].Value;
+                                    string subassembly = link.Attributes["SubassemblyName"].Value;
+                                    string handle = link.Attributes["Handle"].Value;
+                                    string index = link.Attributes["LinkIndex"].Value;
+                                    double station = Convert.ToDouble(link.Attributes["Station"].Value, CultureInfo.InvariantCulture);
 
-                                IList<string> codes = new List<string>();
+                                    string name = string.Join("_", corrName, baselineIndex, regionIndex, assembly, subassembly, handle, index);
 
-                                foreach (XmlElement c in link.GetElementsByTagName("Code"))
-                                {
-                                    string code = c.Attributes["Name"].Value;
-                                    if (!codes.Contains(code))
+                                    //Utils.Log($"Name: {name}");
+
+                                    foreach (XmlElement p in link.GetElementsByTagName("Point"))
                                     {
-                                        codes.Add(code);
-                                    }
-                                }
+                                        double x = Convert.ToDouble(p.Attributes["X"].Value, CultureInfo.InvariantCulture);
+                                        double y = Convert.ToDouble(p.Attributes["Y"].Value, CultureInfo.InvariantCulture);
+                                        double z = Convert.ToDouble(p.Attributes["Z"].Value, CultureInfo.InvariantCulture);
 
-                                points = Point.PruneDuplicates(points);
-
-                                if (points.Count > 2)
-                                {
-                                    PolyCurve pc = PolyCurve.ByPoints(points);
-
-                                    AppliedSubassemblyLink appSubLink = null;
-
-                                    try
-                                    {
-                                        appSubLink = new AppliedSubassemblyLink(name, pc, codes, station);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Utils.Log(string.Format("ERROR: {0} {1} {2}", name, station, ex.Message));
+                                        points.Add(Point.ByCoordinates(x, y, z));
                                     }
 
-                                    if (appSubLink != null)
+                                    points = Point.PruneDuplicates(points);
+
+                                    //Utils.Log($"Points: {points.Count}");
+
+                                    IList<string> codes = new List<string>();
+
+                                    // 20201025 - START
+
+                                    var xml_codes = link.GetElementsByTagName("Codes");
+
+                                    if (xml_codes != null)
                                     {
-                                        regionLinks.Add(appSubLink);
+                                        var xml_code = link.GetElementsByTagName("Code");
+
+                                        if (xml_code != null)
+                                        {
+                                            foreach (XmlElement c in xml_code)
+                                            {
+                                                string code = c.Attributes["Name"].Value;
+                                                if (!codes.Contains(code))
+                                                {
+                                                    codes.Add(code);
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            codes.Add("_NoCode_");
+                                        }
                                     }
                                     else
                                     {
-                                        Utils.Log(string.Format("ERROR: The AppliedSubassemblyLink is null, Station: {0}", station));
+                                        codes.Add("_NoCodes_");
                                     }
+
+                                    //Utils.Log($"Codes: {codes}");
+
+                                    //foreach (XmlElement c in link.GetElementsByTagName("Code"))
+                                    //{
+                                    //    string code = c.Attributes["Name"].Value;
+                                    //    if (!codes.Contains(code))
+                                    //    {
+                                    //        codes.Add(code);
+                                    //    }
+                                    //}
+
+                                    // 20201025 - END
+
+
+                                    if (points.Count > 1)
+                                    {
+                                        PolyCurve pc = PolyCurve.ByPoints(points);
+
+                                        AppliedSubassemblyLink appSubLink = null;
+
+                                        try
+                                        {
+                                            appSubLink = new AppliedSubassemblyLink(name, pc, codes, station);
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Utils.Log(string.Format("ERROR: {0} {1} {2}", name, station, ex.Message));
+                                        }
+
+                                        if (appSubLink != null)
+                                        {
+                                            regionLinks.Add(appSubLink);
+                                        }
+                                        else
+                                        {
+                                            Utils.Log(string.Format("ERROR: The AppliedSubassemblyLink is null, Station: {0}", station));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Utils.Log(string.Format("ERROR: Not enough points to make a link: {0} {1}", name, station));
+                                    }
+
+                                    //Utils.Log("Completed");
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    string.Format("ERROR: Not enough points to make a closed loop: {0} {1}", name, station);
+                                    Utils.Log(ex);
                                 }
                             }
 
